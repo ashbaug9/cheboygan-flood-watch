@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Cheboygan Dam — Flood Map</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}html,body{width:100%;height:100%;overflow:hidden;font-family:'Inter',sans-serif;background:#07090d}
+#map{width:100%;height:100%}
+#tb{position:absolute;top:0;left:0;right:0;height:48px;z-index:1000;background:rgba(7,9,13,.96);border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;padding:0 16px;gap:14px;backdrop-filter:blur(10px)}
+.tl{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#fff;letter-spacing:1px;white-space:nowrap;border-right:1px solid rgba(255,255,255,.1);padding-right:16px;flex-shrink:0}
+.tl em{color:#e53935;font-style:normal}
+#tbd{flex-shrink:0;padding:3px 10px;border-radius:4px;font-size:10.5px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+.br{background:rgba(255,183,0,.15);color:#ffb700;border:1px solid rgba(255,183,0,.3)}.bs{background:rgba(255,100,0,.15);color:#ff6400;border:1px solid rgba(255,100,0,.3)}.bg2{background:rgba(220,40,30,.2);color:#e03020;border:1px solid rgba(220,40,30,.4)}
+#tlv{font-family:'JetBrains Mono',monospace;font-size:11.5px;flex-shrink:0;color:#777}#tlv span{color:#ffb700;font-weight:700}
+#tick{flex:1;overflow:hidden;border-left:1px solid rgba(255,255,255,.07);padding-left:16px;display:flex;align-items:center}
+.ti{display:inline-flex;gap:40px;white-space:nowrap;font-size:11px;color:#aaa;animation:tick 36s linear infinite}.ti .sep{color:#444}.ti .hi{color:#ffb700}
+@keyframes tick{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.ld{width:7px;height:7px;border-radius:50%;background:#3cb45a;flex-shrink:0;animation:lp 2s ease-in-out infinite}
+@keyframes lp{0%,100%{box-shadow:0 0 0 0 rgba(60,180,90,.5)}50%{box-shadow:0 0 0 5px rgba(60,180,90,0)}}
+#tbt{font-size:10px;color:#555;white-space:nowrap}
+#scb{position:absolute;top:58px;left:50%;transform:translateX(-50%);z-index:900;display:flex;background:rgba(7,9,13,.95);border:1px solid rgba(255,255,255,.08);border-radius:8px;overflow:hidden;backdrop-filter:blur(8px)}
+.sb{padding:8px 22px;font-size:12px;font-weight:600;cursor:pointer;background:transparent;border:none;color:#555;font-family:'Inter',sans-serif;position:relative}
+.sb.act{color:#fff;background:rgba(255,255,255,.06)}.sb.act::after{content:'';position:absolute;bottom:0;left:16px;right:16px;height:2px;border-radius:1px}
+.sb.act.pb::after{background:#d96b1a}.sb.act.fb::after{background:#e53935}
+.sdiv{width:1px;background:rgba(255,255,255,.08);align-self:stretch}
+#panel{position:absolute;top:48px;left:0;bottom:0;width:280px;z-index:800;background:rgba(7,9,13,.93);border-right:1px solid rgba(255,255,255,.06);overflow-y:auto;backdrop-filter:blur(8px);transition:transform .3s}
+#panel::-webkit-scrollbar{width:3px}#panel::-webkit-scrollbar-thumb{background:#222}
+#ptog{position:absolute;top:56px;left:280px;z-index:850;width:20px;height:40px;background:rgba(7,9,13,.92);border:1px solid rgba(255,255,255,.07);border-left:none;border-radius:0 5px 5px 0;cursor:pointer;color:#555;font-size:10px;display:flex;align-items:center;justify-content:center}
+.pb2{padding:11px 13px;border-bottom:1px solid rgba(255,255,255,.05)}
+.pbl{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#333;margin-bottom:8px}
+.grow{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.gtr{flex:1;height:5px;background:#111318;border-radius:3px;overflow:hidden}
+.gfl{height:100%;background:linear-gradient(90deg,#3cb45a,#ffb700,#ff6400,#e53935);transition:width 1.2s}
+.gv{font-family:'JetBrains Mono',monospace;font-size:11px;color:#ffb700;white-space:nowrap;min-width:80px;text-align:right}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.sc2{background:#0d0f14;border:1px solid rgba(255,255,255,.04);border-radius:5px;padding:7px 8px}
+.sk{font-size:8.5px;color:#333;margin-bottom:2px;font-weight:600;text-transform:uppercase}
+.sv{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:500;color:#ccc}.sv.w{color:#ffb700}.sv.a{color:#e53935}
+.rsg{display:flex;gap:3px;margin-bottom:6px}
+.rs{flex:1;height:24px;display:flex;align-items:center;justify-content:center;border-radius:4px;font-size:10px;font-weight:700;background:#0d0f14;border:1px solid rgba(255,255,255,.04);color:#333;transition:all .4s}
+.rs.rr{background:#3a2800;color:#ffb700;border-color:#5a3a00}.rs.rs2{background:#3a1500;color:#ff6400;border-color:#5a2000}
+.rs.rg{background:#3a0e0e;color:#e53935;border-color:#5a1515}.rs.rd{background:#151820;color:#444}
+.rn{font-size:10.5px;color:#555;line-height:1.5}.rn strong{color:#ffb700}
+.zt{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:5px;cursor:pointer;border:1px solid transparent;margin-bottom:3px}
+.zt:hover{background:rgba(255,255,255,.03)}.zt.on{border-color:rgba(255,255,255,.06);background:rgba(255,255,255,.03)}
+.zsw{width:10px;height:10px;border-radius:2px;flex-shrink:0}.znm{font-size:11.5px;font-weight:600;flex:1}.zsb{font-size:9px;color:#444;margin-top:1px}
+.ztg{width:26px;height:15px;background:#1e2028;border-radius:8px;border:none;cursor:pointer;position:relative;transition:background .2s;flex-shrink:0;outline:none}
+.ztg.on{background:#1e4a8a}.ztg::after{content:'';position:absolute;width:9px;height:9px;background:#fff;border-radius:50%;top:3px;left:3px;transition:transform .2s}.ztg.on::after{transform:translateX(11px)}
+.sn{background:#0d0f14;border:1px solid rgba(255,255,255,.05);border-radius:5px;padding:9px 11px;font-size:10.5px;color:#777;line-height:1.5}
+.sn strong{display:block;font-size:11px;font-weight:600;margin-bottom:4px}.sn.partial strong{color:#d96b1a}.sn.full strong{color:#e53935}
+.upd{display:flex;gap:7px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.03)}.upd:last-child{border:none}
+.ud{width:5px;height:5px;border-radius:50%;margin-top:5px;flex-shrink:0}.dc{background:#e53935}.dw{background:#ffb700}.di{background:#4a90d9}
+.ut{font-family:'JetBrains Mono',monospace;font-size:9px;color:#444;margin-bottom:1px}
+.um{font-size:10.5px;color:#999;line-height:1.5}.um strong{color:#ddd}
+.ql{display:flex;align-items:center;gap:7px;padding:7px 9px;background:#0d0f14;border:1px solid rgba(255,255,255,.04);border-radius:5px;text-decoration:none;color:#aaa;font-size:11px;font-weight:500;margin-bottom:3px}
+.ql:hover{border-color:#1e4a8a;color:#fff}.ql .qi{width:18px;text-align:center}
+#layers{position:absolute;top:58px;right:10px;z-index:800;display:flex;flex-direction:column;gap:4px}
+.lb{padding:6px 11px;background:rgba(7,9,13,.9);border:1px solid rgba(255,255,255,.09);border-radius:5px;font-size:11px;font-weight:600;color:#555;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap}
+.lb:hover{color:#fff}.lb.active{background:rgba(30,74,138,.4);color:#6aabf0;border-color:#1e4a8a}
+.lb.cb{margin-top:6px;border-color:rgba(255,183,0,.2);color:#706018}.lb.cb.on{background:rgba(60,40,0,.5);color:#ffb700;border-color:rgba(255,183,0,.4)}
+#cbanner{display:none;position:absolute;top:58px;left:50%;transform:translateX(-50%);z-index:860;background:rgba(40,28,0,.97);border:1px solid rgba(255,183,0,.4);border-radius:7px;padding:8px 16px;font-size:12px;color:#ffb700;white-space:nowrap}
+#cbanner button{background:rgba(255,183,0,.15);border:1px solid rgba(255,183,0,.35);border-radius:4px;color:#ffb700;font-size:11px;padding:2px 9px;cursor:pointer;margin-left:8px;font-family:'Inter',sans-serif}
+#cbanner .xc{background:transparent;border:none;color:#666;font-size:14px;cursor:pointer;margin-left:6px}
+#pov{display:none;position:absolute;top:0;left:0;right:0;bottom:0;z-index:1500;background:rgba(7,9,13,.88);backdrop-filter:blur(6px);flex-direction:column;align-items:center;justify-content:center;gap:14px}
+.pi{font-size:28px;animation:spin 1.5s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+.pt{font-size:14px;font-weight:600;color:#fff}.pst{font-size:11.5px;color:#666;font-family:'JetBrains Mono',monospace}
+.ptr{width:320px;height:4px;background:#1a1f2a;border-radius:2px;overflow:hidden}
+.pfl{height:100%;background:linear-gradient(90deg,#1e4a8a,#6aabf0);border-radius:2px;transition:width .3s}
+.pno{font-size:10px;color:#333;max-width:300px;text-align:center;line-height:1.6}
+#mn{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:800;background:rgba(7,9,13,.88);border:1px solid rgba(255,255,255,.06);border-radius:6px;padding:5px 14px;font-size:9.5px;color:#333;pointer-events:none;white-space:nowrap}
+.leaflet-popup-content-wrapper{background:#0e1118!important;color:#bbb!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:9px!important;box-shadow:0 8px 32px rgba(0,0,0,.7)!important}
+.leaflet-popup-tip{background:#0e1118!important}
+.leaflet-popup-content{font-family:'Inter',sans-serif;font-size:12.5px;line-height:1.7;margin:10px 14px!important}
+.leaflet-popup-content h4{font-size:14px;font-weight:700;color:#fff;margin-bottom:6px}
+.leaflet-popup-content hr{border-color:rgba(255,255,255,.08);margin:6px 0}
+.leaflet-popup-close-button{color:#555!important}
+.leaflet-control-zoom a{background:#0e1118!important;color:#777!important;border:1px solid rgba(255,255,255,.08)!important}
+.leaflet-bar{border:none!important;box-shadow:none!important}
+.leaflet-control-attribution{background:rgba(0,0,0,.55)!important;color:#444!important;font-size:9px!important}
+</style>
+</head>
+<body>
+<div id="tb">
+  <div class="tl">CHB<em>FLOOD</em></div>
+  <div id="tbd" class="br">⚠ READY</div>
+  <div id="tlv">Level: <span id="tlvv">13.75"</span> below crest</div>
+  <div id="tick"><div class="ti"><span class="hi">⚠ READY ACTIVE</span><span class="sep">·</span><span>13.75" below top · +3"/day</span><span class="sep">·</span><span>Crane removed gates overnight</span><span class="sep">·</span><span>US-23 RAISED · Lincoln Ave detour</span><span class="sep">·</span><span>Flood Watch until Wed Apr 15 8am</span><span class="sep">·</span><span>smart911.com · 211 · 911</span><span class="sep">·</span><span class="hi">⚠ READY ACTIVE</span><span class="sep">·</span><span>13.75" below top · +3"/day</span><span class="sep">·</span><span>Crane removed gates overnight</span><span class="sep">·</span><span>US-23 RAISED · Lincoln Ave detour</span><span class="sep">·</span><span>Flood Watch until Wed Apr 15 8am</span><span class="sep">·</span><span>smart911.com · 211 · 911</span></div></div>
+  <div class="ld"></div><div id="tbt">—</div>
+</div>
+<div id="scb"><button class="sb pb act" id="btnp" onclick="setSc('partial')">Partial Breach</button><div class="sdiv"></div><button class="sb fb" id="btnf" onclick="setSc('full')">Full Breach</button></div>
+<div id="ptog" onclick="togPanel()">◀</div>
+<div id="panel">
+  <div class="pb2">
+    <div class="pbl">Live Water Level</div>
+    <div class="grow"><div class="gtr"><div class="gfl" id="gf" style="width:45%"></div></div><div class="gv" id="gv">13.75" below</div></div>
+    <div class="sg">
+      <div class="sc2"><div class="sk">Below crest</div><div class="sv w" id="svi">13.75"</div></div>
+      <div class="sc2"><div class="sk">Rise rate</div><div class="sv a">+3"/day</div></div>
+      <div class="sc2"><div class="sk">Dam height</div><div class="sv">21 ft</div></div>
+      <div class="sc2"><div class="sk">Reservoir</div><div class="sv">83,000 ac-ft</div></div>
+      <div class="sc2"><div class="sk">Pumps</div><div class="sv w">5+ active</div></div>
+      <div class="sc2"><div class="sk">SEOC</div><div class="sv a">ACTIVE</div></div>
+    </div>
+  </div>
+  <div class="pb2">
+    <div class="pbl">Ready · Set · Go</div>
+    <div class="rsg"><div class="rs rr" id="rsr">✓ READY</div><div class="rs" id="rss">SET</div><div class="rs" id="rsg2">GO</div></div>
+    <div class="rn"><strong>READY since 5:26am Apr 13.</strong> Pack go-bag. Avoid riverbanks. SET at 6". GO at 1".</div>
+  </div>
+  <div class="pb2"><div class="pbl">Scenario</div><div class="sn partial" id="scd"><strong>Partial Breach — Overtopping / Erosional Failure</strong>17,500 cfs (Froehlich). Manning's WSE + USGS 3DEP terrain. +0.5ft saturation.</div></div>
+  <div class="pb2"><div class="pbl">Flood Zones</div><div id="zlist"></div></div>
+  <div class="pb2">
+    <div class="pbl">Hydraulic Model</div>
+    <div class="sn" style="font-size:10px;color:#666"><strong style="color:#5aa0d8;font-size:10.5px">Manning's + USGS 3DEP Terrain</strong>WSE: power-law attenuation (γ from Manning's friction). Zone boundaries: USGS EPQS elevation queries. +0.5ft saturation correction (snowmelt). Channel: 80ft×7ft, n=0.030. Floodplain: 400ft each side, n=0.080. Slope: 0.0001 ft/ft. BC: Lake Huron 581ft MSL.</div>
+  </div>
+  <div class="pb2">
+    <div class="pbl">Latest Updates</div>
+    <div id="updl">
+      <div class="upd"><div class="ud dc"></div><div><div class="ut">MON APR 13 · OVERNIGHT</div><div class="um"><strong>Crane removes additional gates.</strong></div></div></div>
+      <div class="upd"><div class="ud dc"></div><div><div class="ut">MON APR 13 · 07:00</div><div class="um">DNR 7am: <strong>13.75" below top.</strong></div></div></div>
+      <div class="upd"><div class="ud dc"></div><div><div class="ut">MON APR 13 · 05:26</div><div class="um"><strong>READY status reached.</strong></div></div></div>
+      <div class="upd"><div class="ud dw"></div><div><div class="ut">SUN APR 12 · 19:00</div><div class="um"><strong>US-23 bridge raised.</strong> Detour Lincoln Ave.</div></div></div>
+      <div class="upd"><div class="ud di"></div><div><div class="ut">FRI APR 10 · 10:00</div><div class="um">SEOC activated. State of Emergency.</div></div></div>
+    </div>
+  </div>
+  <div class="pb2" style="border:none">
+    <div class="pbl">Emergency</div>
+    <a class="ql" href="https://www.smart911.com/smart911/ref/reg.action?pa=CCEOEM" target="_blank"><span class="qi">🔔</span>Get Alerts — Be Alert</a>
+    <a class="ql" href="tel:211"><span class="qi">📞</span>Call 211 — Info &amp; Assistance</a>
+    <a class="ql" href="https://www.michigan.gov/msp/divisions/emhsd/2026-cheboygan-dam" target="_blank"><span class="qi">🏛</span>MSP/EMHSD Updates</a>
+    <a class="ql" href="tel:911"><span class="qi">🚨</span>Emergency: 911</a>
+  </div>
+</div>
+<div id="map"></div>
+<div id="layers">
+  <button class="lb" id="lb-sat" onclick="setLayer('sat')">🛰 Satellite</button>
+  <button class="lb active" id="lb-hyb" onclick="setLayer('hyb')">🛰 Sat+Labels</button>
+  <button class="lb" id="lb-osm" onclick="setLayer('osm')">🗺 Street</button>
+  <button class="lb" id="lb-topo" onclick="setLayer('topo')">⛰ Topo</button>
+  <button class="lb cb" id="lb-cal" onclick="togCal()">✏ Calibrate</button>
+</div>
+<div id="cbanner">✏ Drag yellow markers onto river · red anchors fixed<button onclick="expRCL()">Copy coords</button><button class="xc" onclick="togCal()">✕</button></div>
+<div id="pov">
+  <div class="pi">⟳</div><div class="pt">Computing terrain-aware flood zones…</div>
+  <div class="ptr"><div class="pfl" id="pfl" style="width:0%"></div></div>
+  <div class="pst" id="pst">Initializing…</div>
+  <div class="pno">Querying USGS 3DEP elevation along transects.<br>Zone boundaries follow actual terrain elevation.</div>
+</div>
+<div id="mn"><span id="mns">Initializing terrain queries…</span></div>
+<script>
+'use strict';
+// Anchors: fishweb.com Michigan Inland Waterway navigation markers
+const DAM_LL=[45.636060,-84.479615],MOUTH_LL=[45.66683,-84.45367]; // Dam: Google Maps confirmed 2026-04-13
+let RCL=[[45.63606,-84.479615],[45.636198,-84.479329],[45.639009,-84.477713],[45.641819,-84.476096],[45.64463,-84.47448],[45.64741,-84.47188],[45.65018,-84.46928],[45.65296,-84.46668],[45.65573,-84.46408],[45.65851,-84.46147],[45.66128,-84.45887],[45.66406,-84.45627],[45.66683,-84.45367]]; // RCL[1]=flow projection bearing 55.4°NE
+const map=L.map('map',{center:[45.651,-84.465],zoom:14});
+const TL={sat:L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',{subdomains:['0','1','2','3'],attribution:'© Google',maxZoom:21}),hyb:L.tileLayer('https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',{subdomains:['0','1','2','3'],attribution:'© Google',maxZoom:21}),osm:L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}),topo:L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17})};
+TL.hyb.addTo(map);
+function setLayer(id){Object.values(TL).forEach(t=>{if(map.hasLayer(t))map.removeLayer(t)});TL[id].addTo(map);document.querySelectorAll('.lb:not(.cb)').forEach(b=>b.classList.remove('active'));document.getElementById('lb-'+id).classList.add('active');}
+// Buffer polygon: geographic ft-space perpendicular (correct for lat/lon distortion).
+// Endpoints use single-segment tangent — no bisector scale, eliminates endpoint spike.
+// Interior vertices use bisector with scale capped at 3 (was 5, causing blow-out).
+function buf(pts,h){
+  if(pts.length<2)return[];
+  const hft=h*FTL; // convert degree buffer to ft
+  const L=[],R=[];
+  for(let i=0;i<pts.length;i++){
+    let pns,pew;
+    if(i===0||i===pts.length-1){
+      // Endpoint: single tangent in geographic space, scale = 1
+      const a=i===0?0:i-1, b=i===0?1:i;
+      const tns=(pts[b][0]-pts[a][0])*FTL, tew=(pts[b][1]-pts[a][1])*FTLO;
+      const tl=Math.sqrt(tns*tns+tew*tew)||1;
+      pns=(-tew/tl)*hft; pew=(tns/tl)*hft;
+    }else{
+      // Interior: bisector of in/out tangents in geographic space
+      const t1ns=(pts[i][0]-pts[i-1][0])*FTL, t1ew=(pts[i][1]-pts[i-1][1])*FTLO;
+      const l1=Math.sqrt(t1ns*t1ns+t1ew*t1ew)||1;
+      const t2ns=(pts[i+1][0]-pts[i][0])*FTL, t2ew=(pts[i+1][1]-pts[i][1])*FTLO;
+      const l2=Math.sqrt(t2ns*t2ns+t2ew*t2ew)||1;
+      const n1ns=t1ns/l1,n1ew=t1ew/l1, n2ns=t2ns/l2,n2ew=t2ew/l2;
+      const bns=n1ns+n2ns, bew=n1ew+n2ew, bl=Math.sqrt(bns*bns+bew*bew)||1;
+      const bnn=bns/bl, bne=bew/bl;
+      const cos_h=Math.max(n1ns*bnn+n1ew*bne,0.33); // cap: max scale = 3
+      const sc=Math.min(1/cos_h,3);
+      pns=(-bne)*hft*sc; pew=(bnn)*hft*sc;
+    }
+    L.push([pts[i][0]+pns/FTL, pts[i][1]+pew/FTLO]);
+    R.push([pts[i][0]-pns/FTL, pts[i][1]-pew/FTLO]);
+  }
+  return[...L,...[...R].reverse()];
+}
+// Hydro model:
+// WSE(d)=BC+(WSE_dam-BC)*(1-d/L)^gamma
+// gamma derived from Manning's friction on nearly-flat (S=0.0001) lake-controlled reach
+// partial breach: surge=8ft above tailwater, gamma=0.35 (more attenuation, progressive)
+// full breach: surge=11.85ft (near reservoir level), gamma=0.25 (less attenuation, instantaneous)
+const H={EL_H:581.0,EL_TW:581.5,EL_RES:592.85,SAT:0.5,sc:{partial:{Q:17500,WSE_DAM:Math.min(581.5+8.5,593.35),GAM:0.35},full:{Q:25000,WSE_DAM:Math.min(581.5+12.35,593.35),GAM:0.25}},Z1:4.0,Z2:2.0,Z3:0.5};
+const FTL=364566,FTLO=255200;
+function getRCLLen(){let s=0;for(let i=1;i<RCL.length;i++){const dl=(RCL[i][0]-RCL[i-1][0])*FTL,dg=(RCL[i][1]-RCL[i-1][1])*FTLO;s+=Math.sqrt(dl**2+dg**2);}return s;}
+function rclAt(frac){let segs=[],tot=0;for(let i=1;i<RCL.length;i++){const dl=(RCL[i][0]-RCL[i-1][0])*FTL,dg=(RCL[i][1]-RCL[i-1][1])*FTLO,l=Math.sqrt(dl**2+dg**2);segs.push(l);tot+=l;}const tgt=Math.min(frac*tot,tot);let cum=0;for(let i=0;i<segs.length;i++){if(cum+segs[i]>=tgt||i===segs.length-1){const t=segs[i]>0?(tgt-cum)/segs[i]:0;return{lat:RCL[i][0]+t*(RCL[i+1][0]-RCL[i][0]),lng:RCL[i][1]+t*(RCL[i+1][1]-RCL[i][1]),dlat:RCL[i+1][0]-RCL[i][0],dlng:RCL[i+1][1]-RCL[i][1]};}cum+=segs[i];}const n=RCL.length-1;return{lat:RCL[n][0],lng:RCL[n][1],dlat:RCL[n][0]-RCL[n-1][0],dlng:RCL[n][1]-RCL[n-1][1]};}
+function wseP(sc,N){const s=H.sc[sc],bc=H.EL_H+H.SAT,L=getRCLLen();return Array.from({length:N},(_,i)=>{const d=i/(N-1)*L,f=Math.max(0,1-d/L);return bc+(s.WSE_DAM-bc)*Math.pow(f,s.GAM);});}
+function mkTS(nT,hw,sp){const nP=Math.floor(hw/sp),ts=[];for(let t=0;t<nT;t++){const{lat,lng,dlat,dlng}=rclAt(t/(nT-1)),tns=dlat*FTL,tew=dlng*FTLO,tl=Math.sqrt(tns**2+tew**2)||1,tr=[];for(let p=-nP;p<=nP;p++){const d=p*sp,pns=(-tew/tl)*d,pew=(tns/tl)*d;tr.push({lat:lat+pns/FTL,lng:lng+pew/FTLO,off:d});}ts.push(tr);}return ts;}
+const EC=new Map();let epqF=0;
+function ek(la,ln){return`${la.toFixed(5)},${ln.toFixed(5)}`;}
+async function qEl(la,ln){const k=ek(la,ln);if(EC.has(k))return EC.get(k);try{const ctrl=new AbortController(),t=setTimeout(()=>ctrl.abort(),6000);const r=await fetch(`https://epqs.nationalmap.gov/v1/json?x=${ln.toFixed(6)}&y=${la.toFixed(6)}&wkid=4326&units=Feet&includeDate=false`,{signal:ctrl.signal});clearTimeout(t);if(!r.ok)throw 0;const j=await r.json(),v=parseFloat(j.value),el=(isNaN(v)||v<-9000)?578.0:v;EC.set(k,el);return el;}catch{epqF++;return null;}}
+async function qAll(ts,onP){const pts=ts.flatMap(t=>t).filter(p=>!EC.has(ek(p.lat,p.lng)));if(!pts.length){onP(1,1);return 0;}epqF=0;let done=0;for(let i=0;i<pts.length;i+=50){await Promise.all(pts.slice(i,i+50).map(p=>qEl(p.lat,p.lng)));done+=Math.min(50,pts.length-i);onP(done,pts.length);if(i+50<pts.length)await new Promise(r=>setTimeout(r,30));}return epqF;}
+// Terrain-aware zone polygon: connects outermost flooded point on each transect side
+// No self-intersections because polygon is built from outer hull of flooded extent
+function zonePoly(ts,wse,th){const pB=[],nB=[];for(let t=0;t<ts.length;t++){const w=wse[t],tr=ts[t],ce=tr.find(p=>p.off===0)||tr[Math.floor(tr.length/2)];const pos=tr.filter(p=>p.off>=0).sort((a,b)=>a.off-b.off),neg=tr.filter(p=>p.off<=0).sort((a,b)=>b.off-a.off);let pe=[ce.lat,ce.lng];for(let i=pos.length-1;i>=0;i--){const el=EC.get(ek(pos[i].lat,pos[i].lng));if(el!=null&&(w-el)>th){pe=[pos[i].lat,pos[i].lng];break;}}let ne=[ce.lat,ce.lng];for(let i=neg.length-1;i>=0;i--){const el=EC.get(ek(neg[i].lat,neg[i].lng));if(el!=null&&(w-el)>th){ne=[neg[i].lat,neg[i].lng];break;}}pB.push(pe);nB.push(ne);}return[...pB,...[...nB].reverse()];}
+const ZS={partial:{z3:{c:'#c8a020',fo:.18,d:'6 4',w:1.5,nm:'Zone 3 — Watch',nc:'#d8b840',sb:'0.5–2 ft · terrain-aware'},z2:{c:'#d96b1a',fo:.30,d:null,w:1.5,nm:'Zone 2 — High Risk',nc:'#e08845',sb:'2–4 ft · terrain-aware'},z1:{c:'#dc3020',fo:.42,d:null,w:2,nm:'Zone 1 — Evacuate',nc:'#e87065',sb:'4+ ft · terrain-aware'},rv:{c:'#1a6fa8',fc:'#2288d8',fo:.72,d:null,w:1,nm:'River Channel',nc:'#5aa0d8',sb:'Active — CLOSED'}},full:{z3:{c:'#8b0000',fo:.15,d:'6 4',w:1.5,nm:'Zone 3 — Full Breach Watch',nc:'#c06060',sb:'0.5–2 ft · terrain-aware'},z2:{c:'#b71c1c',fo:.25,d:null,w:1.5,nm:'Zone 2 — Full Breach',nc:'#e07070',sb:'2–4 ft · terrain-aware'},z1:{c:'#e53935',fo:.45,d:null,w:2,nm:'Zone 1 — Full Breach Evacuate',nc:'#ff8080',sb:'4+ ft · terrain-aware'},rv:{c:'#1a6fa8',fc:'#2288d8',fo:.72,d:null,w:1,nm:'River Channel',nc:'#5aa0d8',sb:'Catastrophic — CLOSED'}}};
+const POP={partial:{z3:`<h4>🟡 Zone 3 — Watch</h4><b>Inundation:</b> 0.5–2 ft · USGS terrain boundary<hr>Monitor continuously. Be ready to leave on short notice.`,z2:`<h4>🟠 Zone 2 — High Risk</h4><b>Inundation:</b> 2–4 ft · USGS terrain boundary<br>Vehicles impassable. Structural damage possible.<hr>Prepare for evacuation on SET declaration.`,z1:`<h4>🔴 Zone 1 — Evacuate</h4><b>Inundation:</b> 4+ ft · Q=17,500 cfs peak<br>Life-threatening hydraulic force.<hr><b style="color:#e87065">Leave NOW on GO order.`,rv:`<h4>🔵 River Channel</h4>All gates open. 5+ pumps active. Crane removed gates overnight.<br><b style="color:#e53935">Access CLOSED.</b>`},full:{z3:`<h4>🔴 Zone 3 — Full Breach Watch</h4><b>Inundation:</b> 0.5–2 ft · Q=25,000 cfs<hr>Immediate evacuation required.`,z2:`<h4>🔴 Zone 2 — Full Breach</h4><b>Inundation:</b> 2–4 ft<hr><b style="color:#e87065">Evacuate immediately.`,z1:`<h4>🔴 Zone 1 — Full Breach EVACUATE</h4><b>Inundation:</b> 4+ ft · Wave ~12–15 mph<hr><b style="color:#ff8080">Leave NOW.`,rv:`<h4>🔵 River — Catastrophic</h4><b style="color:#e53935">DO NOT approach.</b>`}};
+const SCND={partial:`<strong>Partial Breach — Overtopping / Erosional Failure</strong>17,500 cfs (Froehlich 1995). Manning's power-law WSE (γ=0.35) + USGS 3DEP terrain. +0.5 ft saturation correction (snowmelt).`,full:`<strong>Full Breach — Complete Structural Failure</strong>25,000 cfs (Froehlich 1995). Manning's power-law WSE (γ=0.25) + USGS 3DEP terrain. +0.5 ft saturation correction (snowmelt).`};
+const ORD=['z3','z2','z1','rv'];let aL={},curSc='partial',vis={z1:1,z2:1,z3:1,rv:1};
+function renderZ(ts,wse,sc,fb=false){ORD.forEach(id=>{if(aL[id]){map.removeLayer(aL[id]);delete aL[id];}});const def=ZS[sc];const BF={partial:{z3:.00600,z2:.00210,z1:.00080,rv:.00027},full:{z3:.01230,z2:.00550,z1:.00210,rv:.00027}};const polys=fb||!ts?{z3:buf(RCL,BF[sc].z3),z2:buf(RCL,BF[sc].z2),z1:buf(RCL,BF[sc].z1),rv:buf(RCL,.00027)}:{z3:zonePoly(ts,wse,H.Z3),z2:zonePoly(ts,wse,H.Z2),z1:zonePoly(ts,wse,H.Z1),rv:buf(RCL,.00027)};ORD.forEach(id=>{const d=def[id],pts=polys[id];if(!pts||pts.length<3)return;const poly=L.polygon(pts,{color:d.c,fillColor:d.fc||d.c,fillOpacity:d.fo,weight:d.w,opacity:.88,dashArray:d.d}).addTo(map);poly.on('click',e=>{L.popup({maxWidth:320}).setLatLng(e.latlng).setContent(POP[sc][id]).openOn(map);});poly.on('mouseover',function(){this.setStyle({fillOpacity:Math.min(1,d.fo+.12)})});poly.on('mouseout',function(){this.setStyle({fillOpacity:d.fo})});if(!vis[id])map.removeLayer(poly);aL[id]=poly;});buildZL(sc);const dn=document.getElementById('scd');dn.className='sn '+(sc==='full'?'full':'partial');dn.innerHTML=SCND[sc];}
+function buildZL(sc){const def=ZS[sc],l=document.getElementById('zlist');l.innerHTML='';ORD.forEach(id=>{const d=def[id],r=document.createElement('div');r.className='zt on';r.id='zt-'+id;r.innerHTML=`<div class="zsw" style="background:${d.c}"></div><div><div class="znm" style="color:${d.nc}">${d.nm}</div><div class="zsb">${d.sb}</div></div><button class="ztg on" id="ztb-${id}" onclick="event.stopPropagation();togZ('${id}')"></button>`;r.onclick=()=>togZ(id);l.appendChild(r);vis[id]=1;});}
+function togZ(id){vis[id]=!vis[id];const t=document.getElementById('ztb-'+id),r2=document.getElementById('zt-'+id);if(vis[id]){if(aL[id])aL[id].addTo(map);t.classList.add('on');r2.classList.add('on');}else{if(aL[id])map.removeLayer(aL[id]);t.classList.remove('on');r2.classList.remove('on');}}
+const NT=15,HW=1500,SP=75;
+let cachedTS=null,ready=false;
+const tick=()=>new Promise(r=>setTimeout(r,20));
+async function compute(sc,force=false){curSc=sc;if(ready&&cachedTS&&!force){const w=wseP(sc,NT);renderZ(cachedTS,w,sc);setMN(`Manning's WSE+EPQS · γ=${H.sc[sc].GAM} · ${EC.size} pts · +0.5ft sat.`);return;}showP(0,'Generating transects…');await tick();const ts=mkTS(NT,HW,SP);cachedTS=ts;const tot=ts.reduce((s,t)=>s+t.length,0);const unc=ts.flatMap(t=>t).filter(p=>!EC.has(ek(p.lat,p.lng))).length;if(unc>0){showP(.05,`Querying USGS 3DEP (${tot} pts)…`);const fails=await qAll(ts,(d,t)=>showP(.05+.85*(d/t),`Elevation: ${d}/${t}`));if(fails/tot>.35){hideP();renderZ(null,null,sc,true);setMN('⚠ EPQS unavailable — buffer fallback · reload to retry');return;}}showP(.95,'Building zone polygons…');await tick();renderZ(ts,wseP(sc,NT),sc);if(unc>0)saveEC();ready=true;hideP();setMN(`Manning's WSE+USGS 3DEP · γ=${H.sc[sc].GAM} · ${EC.size} pts · +0.5ft sat.`);}
+function showP(f,msg){document.getElementById('pov').style.display='flex';document.getElementById('pfl').style.width=(f*100)+'%';document.getElementById('pst').textContent=msg;}
+function hideP(){document.getElementById('pov').style.display='none';}
+function setMN(t){document.getElementById('mns').textContent=t;}
+function setSc(sc){document.getElementById('btnp').className='sb pb'+(sc==='partial'?' act':'');document.getElementById('btnf').className='sb fb'+(sc==='full'?' act':'');compute(sc);}
+// Markers
+function mk(h,a){return L.divIcon({html:h,className:'',iconAnchor:a||[0,0]});}
+L.marker(DAM_LL,{icon:mk(`<div style="background:#c93a2a;border:2px solid rgba(255,255,255,.9);border-radius:5px;padding:5px 12px;font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;color:#fff;white-space:nowrap;box-shadow:0 3px 16px rgba(0,0,0,.8)">⚠ CHEBOYGAN DAM</div>`,[66,15])}).addTo(map).bindPopup(`<h4>⚠ Cheboygan Lock &amp; Dam</h4><b>GPS:</b> N45°38.164′ W84°28.777′ (Google Maps confirmed)<br><b>Height:</b> 21 ft · Hydraulic head 13.5 ft · Spillway 94 ft / 7,640 cfs<br><b>Reservoir:</b> 83,000 ac-ft · 1,455 sq mi watershed · FERC<hr><b style="color:#ffb700">Current:</b> 13.75" below crest → 592.85 ft MSL<br><b style="color:#ffb700">Status:</b> READY — all gates open, crane removed gates overnight<br>5+ pumps · 2,000 sandbags`);
+L.marker(MOUTH_LL,{icon:mk(`<div style="background:rgba(7,9,13,.9);border:1px solid #1e4a8a;border-radius:4px;padding:3px 9px;font-size:10px;font-weight:600;color:#5aa0d8;white-space:nowrap">↑ River mouth · Lake Huron</div>`,[77,12])}).addTo(map).bindPopup(`<h4>River Mouth — Lake Huron</h4><b>GPS:</b> N45°40.01′ W84°27.22′<br>Lake Huron: 581 ft MSL (IGLD85) — downstream WSE boundary condition`);
+L.marker([45.6476,-84.4697],{icon:mk(`<div style="background:rgba(7,9,13,.92);border:1px solid #e53935;border-radius:4px;padding:4px 9px;font-size:10px;font-weight:700;color:#e53935;white-space:nowrap">🚫 US-23 Bridge — RAISED</div>`,[112,12])}).addTo(map).bindPopup(`<h4>🚫 US-23 Bascule Bridge — RAISED &amp; CLOSED</h4>Detour: Lincoln Ave Bridge (upstream of dam).<br><b style="color:#e53935">DO NOT cross.</b>`);
+L.marker([45.6356,-84.4822],{icon:mk(`<div style="background:rgba(7,9,13,.92);border:1px solid #c8a020;border-radius:4px;padding:4px 9px;font-size:10px;font-weight:700;color:#c8b040;white-space:nowrap">🌉 Lincoln Ave Bridge · US-23 Detour</div>`,[140,12])}).addTo(map).bindPopup(`<h4>🌉 Lincoln Ave Bridge — Active US-23 Detour</h4>Upstream of dam complex. 20 ft clearance.<br><b style="color:#c8b040">Safe for evacuation routing.</b>`);
+[[45.6325,-84.4850,'↑ Evacuate North'],[45.6325,-84.4920,'← Evacuate West']].forEach(([la,lo,t])=>L.marker([la,lo],{icon:mk(`<div style="font-size:10.5px;font-weight:700;color:#3cb45a;background:rgba(7,9,13,.85);padding:2px 8px;border-radius:4px;white-space:nowrap;border:1px solid #1a4a28">${t}</div>`,[70,10]),interactive:false}).addTo(map));
+// OSM river fetch
+async function loadOSM(){try{const q=`[out:json][timeout:12];way["name"="Cheboygan River"]["waterway"="river"](45.625,-84.495,45.675,-84.440);out geom;`;const ctrl=new AbortController(),t=setTimeout(()=>ctrl.abort(),11000);const r=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q),{signal:ctrl.signal});clearTimeout(t);if(!r.ok)throw 0;const j=await r.json(),ns=[];(j.elements||[]).forEach(e=>{if(e.type==='way'&&e.geometry)e.geometry.forEach(n=>ns.push([n.lat,n.lon]));});if(ns.length<4)throw 0;ns.sort((a,b)=>a[0]-b[0]);const cos=Math.cos(45.65*Math.PI/180),dd=[ns[0]];for(let i=1;i<ns.length;i++){const p=dd[dd.length-1],dl=(ns[i][0]-p[0])*111000,dg=(ns[i][1]-p[1])*111000*cos;if(Math.sqrt(dl**2+dg**2)>6)dd.push(ns[i]);}const cy=dd.filter(n=>n[0]>45.635&&n[0]<45.666);if(cy.length<4)throw 0;RCL.length=0;RCL.push([...DAM_LL]);RCL.push([45.636198,-84.479329]); // keep confirmed flow projection bearing
+cy.forEach(n=>RCL.push(n));RCL.push([...MOUTH_LL]);cachedTS=null;ready=false;compute(curSc,true);}catch{console.warn('OSM fetch failed');}}
+// Calibrate tool
+let calOn=false,calP=[],calM=[],calL=null;
+function calIco(i,lk){return L.divIcon({html:`<div style="width:${lk?16:13}px;height:${lk?16:13}px;background:${lk?'#e53935':'#ffb700'};border:2px solid #fff;border-radius:50%;cursor:${lk?'default':'grab'};box-shadow:0 2px 8px rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff;font-weight:800">${lk?'⚓':i}</div>`,className:'',iconAnchor:[lk?8:6,lk?8:6]});}
+function mkCL(){if(calL)map.removeLayer(calL);calL=L.polyline(calP,{color:'#ffb700',weight:2.5,opacity:.9,dashArray:'8 5'}).addTo(map);}
+function mkCM(){calM.forEach(m=>map.removeLayer(m));calM=[];calP.forEach((pt,i)=>{const lk=i===0||i===calP.length-1;const m=L.marker([...pt],{draggable:!lk,icon:calIco(i,lk),zIndexOffset:1200}).addTo(map);m.bindTooltip(lk?(i===0?'⚓ Dam':'⚓ Mouth'):`Pt ${i}`,{direction:'top',offset:[0,-6]});if(!lk){m.on('drag',function(){calP[i]=[+this.getLatLng().lat.toFixed(6),+this.getLatLng().lng.toFixed(6)];mkCL();calPrev();});m.on('dragend',function(){calP[i]=[+this.getLatLng().lat.toFixed(6),+this.getLatLng().lng.toFixed(6)];mkCL();calPrev();});}calM.push(m);});}
+function calPrev(){ORD.forEach(id=>{if(aL[id]){map.removeLayer(aL[id]);delete aL[id];}});const BF={partial:{z3:.00600,z2:.00210,z1:.00080,rv:.00027},full:{z3:.01230,z2:.00550,z1:.00210,rv:.00027}};ORD.forEach(id=>{const d=ZS[curSc][id];aL[id]=L.polygon(buf(calP,BF[curSc][id]),{color:d.c,fillColor:d.fc||d.c,fillOpacity:d.fo,weight:d.w,opacity:.88,dashArray:d.d}).addTo(map);});}
+function togCal(){calOn=!calOn;const btn=document.getElementById('lb-cal'),ban=document.getElementById('cbanner');if(calOn){btn.classList.add('on');btn.textContent='✏ Exit Calibrate';ban.style.display='block';calP=RCL.map(p=>[...p]);setLayer('hyb');mkCL();mkCM();}else{btn.classList.remove('on');btn.textContent='✏ Calibrate';ban.style.display='none';calM.forEach(m=>map.removeLayer(m));calM=[];if(calL){map.removeLayer(calL);calL=null;}RCL.length=0;calP.forEach(p=>RCL.push([...p]));cachedTS=null;ready=false;compute(curSc,true);}}
+function expRCL(){const out='let RCL = [\n'+calP.map((p,i)=>`  [${p[0]},${p[1]}],${i===0?'  // Dam':i===calP.length-1?'  // Mouth':''}`).join('\n')+'\n];';navigator.clipboard.writeText(out).then(()=>{const b=event.target;b.textContent='✓ Copied!';setTimeout(()=>b.textContent='Copy coords',2000);}).catch(()=>prompt('RCL:',out));}
+// Live water data
+function applyD(d){const p=Math.min(96,(1-d.in/252)*100+42);document.getElementById('gf').style.width=p+'%';document.getElementById('gv').textContent=d.in+'" below';document.getElementById('svi').textContent=d.in+'"';document.getElementById('tlvv').textContent=d.in+'"';const b=document.getElementById('tbd');const lb={monitor:'✓ OK',ready:'⚠ READY',set:'⚠ SET',go:'🚨 GO'};const cb={monitor:'br',ready:'br',set:'bs',go:'bg2'};b.textContent=lb[d.st]||lb.ready;b.className=cb[d.st]||cb.ready;['rsr','rss','rsg2'].forEach(x=>document.getElementById(x).className='rs');if(d.st==='ready')document.getElementById('rsr').className='rs rr';else if(d.st==='set'){document.getElementById('rsr').className='rs rd';document.getElementById('rss').className='rs rs2';}else if(d.st==='go'){document.getElementById('rsr').className='rs rd';document.getElementById('rss').className='rs rd';document.getElementById('rsg2').className='rs rg';}document.getElementById('tbt').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
+async function fetchW(){try{const r=await fetch('https://waterservices.usgs.gov/nwis/iv/?sites=04130000&parameterCd=00065&format=json&period=PT2H',{cache:'no-cache'});if(!r.ok)throw 0;const j=await r.json(),v=j?.value?.timeSeries?.[0]?.values?.[0]?.value;if(v&&v.length){const lt=v[v.length-1],gh=parseFloat(lt.value),est=Math.max(0.5,Math.round(20-(gh-8)*2)),st=est<=1?'go':est<=6?'set':est<=12?'ready':'monitor';applyD({in:est,st});const l=document.getElementById('updl'),e=document.createElement('div');e.className='upd';e.innerHTML=`<div class="ud di"></div><div><div class="ut">USGS LIVE · ${new Date(lt.dateTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div><div class="um">Gage: <strong>${gh} ft</strong></div></div>`;l.insertBefore(e,l.firstChild);return;}}catch{}applyD({in:13.75,st:'ready'});}
+// Panel toggle
+let panO=true;
+function togPanel(){panO=!panO;document.getElementById('panel').style.transform=panO?'':'translateX(-280px)';document.getElementById('ptog').style.left=panO?'280px':'0';document.getElementById('ptog').textContent=panO?'◀':'▶';}
+// ── localStorage elevation cache ──────────────────────────────────
+// Key is scoped to dam coords — auto-invalidates when dam location changes.
+// TTL: 7 days. ~615 pts ≈ 15KB. Falls back silently if storage unavailable.
+const CK=`cheb_el_${DAM_LL[0]}_${DAM_LL[1]}_v1`,CTT=7*24*60*60*1000;
+function restEC(){try{const r=localStorage.getItem(CK);if(!r)return false;const{ts,d}=JSON.parse(r);if(Date.now()-ts>CTT){localStorage.removeItem(CK);return false;}Object.entries(d).forEach(([k,v])=>EC.set(k,v));console.log(`Elev cache restored: ${EC.size} pts (age ${Math.round((Date.now()-ts)/3600000)}h)`);return true;}catch{return false;}}
+function saveEC(){try{localStorage.setItem(CK,JSON.stringify({ts:Date.now(),d:Object.fromEntries(EC)}));console.log(`Elev cache saved: ${EC.size} pts`);}catch(e){console.warn('Cache save failed (storage full?):', e);}}
+// ── Startup ────────────────────────────────────────────────────────
+applyD({in:13.75,st:'ready'});
+setTimeout(fetchW,1000);setInterval(fetchW,5*60*1000);
+restEC(); // pre-populate EC from localStorage — skips EPQS queries if cache valid
+compute('partial');
+setTimeout(loadOSM,800);
+</script>
+</body>
+</html>
