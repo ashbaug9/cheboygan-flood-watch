@@ -2,20 +2,40 @@
 """
 generate_terrain_zones.py
 ─────────────────────────────────────────────────────────────────────────────
-Queries USGS 3DEP elevation along transects of the Cheboygan River centerline,
-computes terrain-aware flood zone boundary polygons for partial and full breach
-scenarios, and writes the pre-computed coordinates into cheboygan_flood_map_v3.html.
+Queries USGS 3DEP elevation for the Cheboygan River corridor, computes
+terrain-aware flood zone boundary polygons for partial and full breach
+scenarios, and writes pre-computed coordinates into the HTML map.
 
-Run once after updating the RCL coordinates. Takes ~30–60 seconds due to API calls.
+Primary source:  USGS 3DEP ImageServer getSamples API
+                 1m LiDAR-derived DEM where available (Cheboygan 2019 coverage)
+                 Returns NAVD88 meters directly — no geoid conversion needed
+                 Batch requests (50 pts each) — fast, no compilation required
+Fallback:        USGS EPQS point query service
 
-Requirements:  Python 3.8+  (no third-party packages needed)
-Usage:         python generate_terrain_zones.py
-Output:        cheboygan_flood_map_v3.html is updated in-place.
-               A backup is written to cheboygan_flood_map_v3.html.bak
+Requirements:    Python 3.8+ standard library only — NO pip installs needed
+
+Colab usage:
+    1. Upload generate_terrain_zones.py and cheboygan_flood_map_v3.html
+    2. Run:  !python generate_terrain_zones.py
+    3. Download updated cheboygan_flood_map_v3.html
+
+Output:  cheboygan_flood_map_v3.html updated in-place
+         cheboygan_flood_map_v3.html.bak  (automatic backup)
 """
 
-import math, json, time, urllib.request, urllib.parse, sys, os, re
+import math, json, sys, os, re, time, urllib.request, urllib.parse
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ELEVATION API ENDPOINTS
+# ─────────────────────────────────────────────────────────────────────────────
+# Primary: 3DEP ImageServer — batch up to 50 points, 1m LiDAR-derived, NAVD88 metres
+IMAGESERVER_URL = (
+    "https://elevation.nationalmap.gov/arcgis/rest/services/"
+    "3DEPElevation/ImageServer/getSamples"
+)
+# Fallback: EPQS point query
+EPQS_URL = "https://epqs.nationalmap.gov/v1/json"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RIVER CENTERLINE  — keep in sync with RCL in the HTML file
@@ -40,25 +60,24 @@ RCL = [
 # ─────────────────────────────────────────────────────────────────────────────
 # HYDRAULIC MODEL PARAMETERS
 # ─────────────────────────────────────────────────────────────────────────────
-# Water surface elevation at dam for each scenario (ft MSL)
-# Lake Huron boundary condition: 581.0 ft MSL
-# +0.5 ft snowmelt saturation correction applied to terrain threshold
+# WSE back-calculated from USGS 04132052:
+#   Apr 13 7am: 595.2ft NAVD88, officials confirmed 13.75" below crest
+#   Crest = 595.2 + (13.75/12) = 596.346ft NAVD88
 SCENARIOS = {
     "partial": {
-        "WSE_DAM": 597.5,    # crest 596.346 + ~1.15 ft surge head (partial breach overtopping)
-        "BC":      581.5,    # downstream boundary condition (Lake Huron + 0.5 sat)
-        "GAMMA":   0.35,     # Manning's power-law attenuation exponent
+        "WSE_DAM": 597.5,  # crest + ~1.15ft surge (overtopping/erosional failure)
+        "BC":      581.5,  # Lake Huron + 0.5ft snowmelt saturation
+        "GAMMA":   0.35,   # Manning's power-law attenuation exponent
         "Q_label": "20,000–35,000 cfs",
     },
     "full": {
-        "WSE_DAM": 599.0,    # crest 596.346 + ~2.65 ft (near full reservoir head, catastrophic)
+        "WSE_DAM": 599.0,  # crest + ~2.65ft (near full reservoir head)
         "BC":      581.5,
         "GAMMA":   0.25,
         "Q_label": "50,000–100,000 cfs",
     },
 }
 
-# Inundation depth thresholds (ft above terrain) to define zone boundaries
 ZONE_THRESHOLDS = {
     "z1": 4.0,   # Zone 1: 4+ ft — evacuate
     "z2": 2.0,   # Zone 2: 2–4 ft — high risk
@@ -66,11 +85,11 @@ ZONE_THRESHOLDS = {
 }
 
 # Transect geometry
-N_TRANSECTS  = 18      # transects along river (more = smoother polygon)
-HALF_WIDTH   = 1200    # ft each side of centerline to sample
-STEP_FT      = 100     # ft between sample points on each transect
+N_TRANSECTS = 30      # transects along river
+HALF_WIDTH  = 1200    # ft each side of centerline
+STEP_FT     = 75      # ft between sample points per transect
 
-# Coordinate conversion constants (at 45.65°N)
+# Coordinate conversion at 45.65°N
 FTL  = 364566.0   # feet per degree latitude
 FTLO = 255200.0   # feet per degree longitude
 
@@ -80,265 +99,224 @@ FTLO = 255200.0   # feet per degree longitude
 def rcl_length():
     total = 0.0
     for i in range(1, len(RCL)):
-        dlat = (RCL[i][0] - RCL[i-1][0]) * FTL
-        dlon = (RCL[i][1] - RCL[i-1][1]) * FTLO
-        total += math.sqrt(dlat**2 + dlon**2)
+        dl = (RCL[i][0]-RCL[i-1][0])*FTL
+        dg = (RCL[i][1]-RCL[i-1][1])*FTLO
+        total += math.sqrt(dl**2+dg**2)
     return total
 
 def rcl_at(frac):
-    """Return (lat, lon, tangent_lat, tangent_lon) at fractional distance along RCL."""
-    segs = []
-    total = 0.0
+    segs, total = [], 0.0
     for i in range(1, len(RCL)):
-        dlat = (RCL[i][0] - RCL[i-1][0]) * FTL
-        dlon = (RCL[i][1] - RCL[i-1][1]) * FTLO
-        seg_len = math.sqrt(dlat**2 + dlon**2)
-        segs.append(seg_len)
-        total += seg_len
-    target = min(frac * total, total)
-    cum = 0.0
-    for i, seg_len in enumerate(segs):
-        if cum + seg_len >= target or i == len(segs) - 1:
-            t = (target - cum) / seg_len if seg_len > 0 else 0.0
-            lat = RCL[i][0] + t * (RCL[i+1][0] - RCL[i][0])
-            lon = RCL[i][1] + t * (RCL[i+1][1] - RCL[i][1])
-            dlat = (RCL[i+1][0] - RCL[i][0]) * FTL
-            dlon = (RCL[i+1][1] - RCL[i][1]) * FTLO
-            tl = math.sqrt(dlat**2 + dlon**2) or 1.0
-            return lat, lon, dlat/tl, dlon/tl
-        cum += seg_len
-    return RCL[-1][0], RCL[-1][1], 0, 1
+        dl=(RCL[i][0]-RCL[i-1][0])*FTL; dg=(RCL[i][1]-RCL[i-1][1])*FTLO
+        sl=math.sqrt(dl**2+dg**2); segs.append(sl); total+=sl
+    target=min(frac*total,total); cum=0.0
+    for i,sl in enumerate(segs):
+        if cum+sl>=target or i==len(segs)-1:
+            t=(target-cum)/sl if sl>0 else 0.0
+            lat=RCL[i][0]+t*(RCL[i+1][0]-RCL[i][0])
+            lon=RCL[i][1]+t*(RCL[i+1][1]-RCL[i][1])
+            dl=(RCL[i+1][0]-RCL[i][0])*FTL; dg=(RCL[i+1][1]-RCL[i][1])*FTLO
+            tl=math.sqrt(dl**2+dg**2) or 1.0
+            return lat,lon,dl/tl,dg/tl
+        cum+=sl
+    return RCL[-1][0],RCL[-1][1],0,1
 
 def transect_points(frac):
-    """Generate sample points perpendicular to centerline at given fraction."""
-    lat, lon, tn, te = rcl_at(frac)
-    # Perpendicular direction (rotate tangent 90°)
-    pn, pe = -te, tn
-    n_steps = int(HALF_WIDTH / STEP_FT)
-    pts = []
-    for s in range(-n_steps, n_steps + 1):
-        offset_ft = s * STEP_FT
-        slat = lat + (pn * offset_ft) / FTL
-        slon = lon + (pe * offset_ft) / FTLO
-        pts.append((slat, slon, offset_ft))
+    lat,lon,tn,te=rcl_at(frac); pn,pe=-te,tn
+    n_steps=int(HALF_WIDTH/STEP_FT); pts=[]
+    for s in range(-n_steps,n_steps+1):
+        off=s*STEP_FT
+        pts.append((lat+(pn*off)/FTL, lon+(pe*off)/FTLO, off))
     return pts
 
 def wse_at_distance(scenario, frac):
-    """Water surface elevation (ft MSL) at fractional distance from dam."""
-    s = SCENARIOS[scenario]
-    total_len = rcl_length()
-    dist_ft = frac * total_len
-    f = max(0.0, 1.0 - dist_ft / total_len)
-    return s["BC"] + (s["WSE_DAM"] - s["BC"]) * (f ** s["GAMMA"])
+    s=SCENARIOS[scenario]; total=rcl_length()
+    f=max(0.0,1.0-frac*total/total)
+    return s["BC"]+(s["WSE_DAM"]-s["BC"])*(f**s["GAMMA"])
 
 # ─────────────────────────────────────────────────────────────────────────────
-# USGS 3DEP ELEVATION QUERY
-# Three endpoints tried in order; failed points retried sequentially at the end.
+# ELEVATION QUERIES
 # ─────────────────────────────────────────────────────────────────────────────
+_cache = {}   # key="lat,lon" → elevation ft NAVD88
 
-_elev_cache = {}
-
-def _try_epqs_v1(lat, lon, timeout):
-    url = (f"https://epqs.nationalmap.gov/v1/json"
-           f"?x={lon:.6f}&y={lat:.6f}&wkid=4326&units=Feet&includeDate=false")
-    req = urllib.request.Request(url, headers={"User-Agent": "CheboyganFloodMap/1.0"})
+def _batch_imageserver(points, timeout=20):
+    """
+    Query USGS 3DEP ImageServer for up to 50 points in one request.
+    Returns dict: index → elevation ft NAVD88, or None on failure.
+    points: list of (lat, lon) tuples
+    """
+    geom = json.dumps({
+        "points": [[lon, lat] for lat, lon in points],
+        "spatialReference": {"wkid": 4326}
+    })
+    params = urllib.parse.urlencode({
+        "geometry":             geom,
+        "geometryType":         "esriGeometryMultipoint",
+        "returnFirstValueOnly": "true",
+        "interpolation":        "RSP_BilinearInterpolation",
+        "f":                    "json"
+    })
+    url = IMAGESERVER_URL + "?" + params
+    req = urllib.request.Request(url, headers={"User-Agent": "CheboyganFloodMap/2.0"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         data = json.loads(r.read())
-        val = float(data.get("value", -9999))
-        return val if val > -9000 else None
+    results = {}
+    for s in data.get("samples", []):
+        idx = int(s["locationId"])
+        try:
+            val_m = float(s["value"])
+            # ImageServer returns NAVD88 metres — convert to feet
+            results[idx] = val_m * 3.28084
+        except (ValueError, KeyError):
+            results[idx] = None
+    return results
 
-def _try_epqs_legacy(lat, lon, timeout):
-    url = (f"https://nationalmap.gov/epqs/pqs.php"
-           f"?x={lon:.6f}&y={lat:.6f}&units=Feet&output=json")
-    req = urllib.request.Request(url, headers={"User-Agent": "CheboyganFloodMap/1.0"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        data = json.loads(r.read())
-        val = float(data.get("USGS_Elevation_Point_Query_Service", {})
-                    .get("Elevation_Query", {}).get("Elevation", -9999))
-        return val if val > -9000 else None
-
-def _try_open_elevation(lat, lon, timeout):
-    url = f"https://api.open-elevation.com/api/v1/lookup?locations={lat:.6f},{lon:.6f}"
-    req = urllib.request.Request(url, headers={"User-Agent": "CheboyganFloodMap/1.0"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        data = json.loads(r.read())
-        val_m = float(data.get("results", [{}])[0].get("elevation", -9999))
-        val = val_m * 3.28084   # metres → feet
-        return val if val_m > -9000 else None
-
-ENDPOINT_FNS = [_try_epqs_v1, _try_epqs_legacy, _try_open_elevation]
-
-def query_elevation(lat, lon, timeout=10, max_retries=4):
-    """Try each endpoint in order with exponential back-off. Returns ft MSL or None."""
-    key = f"{lat:.6f},{lon:.6f}"
-    if key in _elev_cache:
-        return _elev_cache[key]
-    for fn in ENDPOINT_FNS:
-        for attempt in range(max_retries):
-            try:
-                val = fn(lat, lon, timeout)
-                if val is not None:
-                    _elev_cache[key] = val
-                    return val
-            except Exception:
-                time.sleep(min(0.3 * (2 ** attempt), 4.0))
-        time.sleep(0.2)
+def _single_epqs(lat, lon, timeout=10, retries=3):
+    """Single-point EPQS fallback. Returns ft NAVD88 or None."""
+    url = (f"{EPQS_URL}?x={lon:.6f}&y={lat:.6f}"
+           "&wkid=4326&units=Feet&includeDate=false")
+    for attempt in range(retries):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "CheboyganFloodMap/2.0"})
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                data = json.loads(r.read())
+            val = float(data.get("value", -9999))
+            if val > -9000:
+                return val
+        except Exception:
+            time.sleep(0.4 * (2**attempt))
     return None
 
 def query_all_points(all_pts):
     """
-    Phase 1 — parallel (3 threads, gentle on API).
-    Phase 2 — sequential retry of failures with longer timeouts.
+    Phase 1: Batch ImageServer requests (50 pts each, threaded).
+    Phase 2: EPQS retry for any failures.
+    Returns dict key="lat,lon" → ft NAVD88.
     """
     total = len(all_pts)
-    print(f"  Querying {total} elevation points (3 endpoints available as fallback)...")
-    print("  Phase 1: parallel requests...")
+    print(f"  Source: USGS 3DEP ImageServer (1m LiDAR-derived, NAVD88)")
+    print(f"  Querying {total} points in batches of 50...")
 
-    results = {}
-    failed_pts = []
+    # Build ordered list to preserve index→key mapping
+    pts_list = [(lat, lon) for lat, lon, _ in all_pts]
+    keys     = [f"{lat:.6f},{lon:.6f}" for lat, lon in pts_list]
 
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        futures = {executor.submit(query_elevation, lat, lon): (lat, lon)
-                   for lat, lon, _ in all_pts}
+    # Split into batches of 50
+    BATCH = 50
+    batches = [pts_list[i:i+BATCH] for i in range(0, total, BATCH)]
+
+    results = {}   # index → value
+    failed  = []
+
+    def run_batch(batch_idx, batch):
+        offset = batch_idx * BATCH
+        try:
+            res = _batch_imageserver(batch, timeout=25)
+            out = {}
+            for j, (lat, lon) in enumerate(batch):
+                global_idx = offset + j
+                val = res.get(j)
+                out[global_idx] = val
+                if val is None:
+                    failed.append(global_idx)
+            return out
+        except Exception as e:
+            # Whole batch failed — mark all as None for retry
+            out = {}
+            for j in range(len(batch)):
+                global_idx = offset + j
+                out[global_idx] = None
+                failed.append(global_idx)
+            return out
+
+    # Run batches with 4 threads
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futures = {executor.submit(run_batch, i, b): i
+                   for i, b in enumerate(batches)}
         done = 0
         for future in as_completed(futures):
-            lat, lon = futures[future]
-            key = f"{lat:.6f},{lon:.6f}"
-            try:
-                val = future.result()
-                results[key] = val
-                if val is None:
-                    failed_pts.append((lat, lon))
-            except Exception:
-                results[key] = None
-                failed_pts.append((lat, lon))
-            done += 1
-            if done % 30 == 0 or done == total:
-                print(f"    {done}/{total}  —  {len(failed_pts)} failed so far")
+            results.update(future.result())
+            done += BATCH
+            pct = min(done, total)
+            fails = sum(1 for v in results.values() if v is None)
+            print(f"    {pct}/{total}  —  {fails} failed so far")
 
-    if failed_pts:
-        print(f"\n  Phase 2: retrying {len(failed_pts)} failed points one-by-one...")
+    # Phase 2: EPQS retry for failures
+    fail_idxs = [i for i, v in results.items() if v is None]
+    if fail_idxs:
+        print(f"\n  Phase 2: EPQS retry for {len(fail_idxs)} failed points...")
         still_failed = 0
-        for i, (lat, lon) in enumerate(failed_pts):
-            key = f"{lat:.6f},{lon:.6f}"
-            time.sleep(0.5)
-            val = query_elevation(lat, lon, timeout=15, max_retries=6)
-            results[key] = val
+        for n, idx in enumerate(fail_idxs):
+            lat, lon = pts_list[idx]
+            time.sleep(0.25)
+            val = _single_epqs(lat, lon)
+            results[idx] = val
             if val is None:
                 still_failed += 1
-            if (i + 1) % 10 == 0:
-                print(f"    Retry {i+1}/{len(failed_pts)}  —  {still_failed} still failing")
-        print(f"  Phase 2 done: recovered {len(failed_pts)-still_failed}/{len(failed_pts)}")
+            if (n+1) % 20 == 0:
+                print(f"    Retry {n+1}/{len(fail_idxs)}  —  {still_failed} still failing")
+        recovered = len(fail_idxs) - still_failed
+        print(f"  Phase 2 done: recovered {recovered}/{len(fail_idxs)}")
 
-    valid = sum(1 for v in results.values() if v is not None)
-    coverage = valid / total * 100
-    print(f"\n  Final coverage: {valid}/{total} points ({coverage:.0f}%)")
-    if coverage < 50:
-        print("  ⚠ Coverage below 50% — zones may revert to buffer fallback.")
-        print("  USGS may be overloaded. Try running the script again in a few minutes.")
-    elif coverage < 80:
-        print("  ⚠ Partial coverage — some zones may use buffer fallback.")
-    return results
+    # Build final key→value dict
+    final = {keys[i]: results.get(i) for i in range(total)}
+    valid = sum(1 for v in final.values() if v is not None)
+    print(f"\n  Final coverage: {valid}/{total} ({valid/total*100:.0f}%)")
+    if valid/total < 0.7:
+        print("  ⚠ Coverage below 70% — some zones may use buffer fallback")
+    return final
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ZONE POLYGON COMPUTATION
 # ─────────────────────────────────────────────────────────────────────────────
 def find_zone_boundary(transect_pts, wse, threshold, elev_data):
-    """
-    Find outermost flooded point on each side of centerline for a given
-    depth threshold. Returns (pos_boundary_ll, neg_boundary_ll).
-    pos = left side of river (positive offset), neg = right side.
-    """
-    center = next((p for p in transect_pts if p[2] == 0), transect_pts[len(transect_pts)//2])
+    center = next((p for p in transect_pts if p[2]==0), transect_pts[len(transect_pts)//2])
     center_ll = (center[0], center[1])
-
-    pos_pts = sorted([p for p in transect_pts if p[2] >= 0], key=lambda p: p[2])
-    neg_pts = sorted([p for p in transect_pts if p[2] <= 0], key=lambda p: -p[2])
-
+    pos = sorted([p for p in transect_pts if p[2]>=0], key=lambda p: p[2])
+    neg = sorted([p for p in transect_pts if p[2]<=0], key=lambda p: -p[2])
     def outermost(pts):
         best = center_ll
-        for lat, lon, off in reversed(pts):
+        for lat,lon,off in reversed(pts):
             key = f"{lat:.6f},{lon:.6f}"
             elev = elev_data.get(key)
-            if elev is not None and (wse - elev) > threshold:
-                best = (lat, lon)
-                break
+            if elev is not None and (wse-elev)>threshold:
+                best=(lat,lon); break
         return best
-
-    return outermost(pos_pts), outermost(neg_pts)
+    return outermost(pos), outermost(neg)
 
 def build_zone_polygon(transects, fracs, scenario, zone_key, elev_data):
-    """Build a closed polygon for a zone by connecting boundary points across transects."""
-    threshold = ZONE_THRESHOLDS[zone_key]
-    pos_boundary = []
-    neg_boundary = []
-    for i, (t_pts, frac) in enumerate(zip(transects, fracs)):
-        wse = wse_at_distance(scenario, frac)
-        pb, nb = find_zone_boundary(t_pts, wse, threshold, elev_data)
-        pos_boundary.append(pb)
-        neg_boundary.append(nb)
-    # Polygon: pos side forward + neg side reversed = closed ring
-    polygon = pos_boundary + list(reversed(neg_boundary))
-    return polygon
+    threshold=ZONE_THRESHOLDS[zone_key]; pb,nb=[],[]
+    for t_pts,frac in zip(transects,fracs):
+        wse=wse_at_distance(scenario,frac)
+        p,n=find_zone_boundary(t_pts,wse,threshold,elev_data)
+        pb.append(p); nb.append(n)
+    return pb+list(reversed(nb))
 
 def smooth_polygon(pts, window=3):
-    """Simple moving-average smoothing to reduce jaggedness."""
-    n = len(pts)
-    smoothed = []
-    hw = window // 2
+    n=len(pts); hw=window//2; smoothed=[]
     for i in range(n):
-        lats = [pts[(i+j-hw) % n][0] for j in range(window)]
-        lons = [pts[(i+j-hw) % n][1] for j in range(window)]
-        smoothed.append((sum(lats)/window, sum(lons)/window))
+        lats=[pts[(i+j-hw)%n][0] for j in range(window)]
+        lons=[pts[(i+j-hw)%n][1] for j in range(window)]
+        smoothed.append((sum(lats)/window,sum(lons)/window))
     return smoothed
-
-# ─────────────────────────────────────────────────────────────────────────────
-# JAVASCRIPT OUTPUT
-# ─────────────────────────────────────────────────────────────────────────────
-def poly_to_js(pts, name):
-    """Format polygon points as a JavaScript array."""
-    coords = ",\n    ".join(f"[{lat:.6f},{lon:.6f}]" for lat, lon in pts)
-    return f"const {name} = [\n    {coords}\n  ];"
-
-def build_js_block(all_polys):
-    """Build the complete PRE_COMPUTED_ZONES JavaScript block."""
-    lines = ["// PRE_COMPUTED_ZONES_START",
-             "// Generated by generate_terrain_zones.py — do not edit manually.",
-             "// Re-run the script to update after changing RCL coordinates.",
-             "const TERRAIN_ZONES = {"]
-    for sc in ["partial", "full"]:
-        lines.append(f"  {sc}: {{")
-        for zone in ["z3", "z2", "z1"]:
-            key = f"{sc}_{zone}"
-            pts = all_polys[key]
-            coords = ", ".join(f"[{lat:.6f},{lon:.6f}]" for lat, lon in pts)
-            lines.append(f"    {zone}: [{coords}],")
-        lines.append("  },")
-    lines.append("};")
-    lines.append("// PRE_COMPUTED_ZONES_END")
-    return "\n".join(lines)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # HTML INJECTION
 # ─────────────────────────────────────────────────────────────────────────────
-ZONES_PLACEHOLDER = "// PRE_COMPUTED_ZONES_PLACEHOLDER"
-ZONES_START_TAG   = "// PRE_COMPUTED_ZONES_START"
-ZONES_END_TAG     = "// PRE_COMPUTED_ZONES_END"
+ZONES_START = "// PRE_COMPUTED_ZONES_START"
+ZONES_END   = "// PRE_COMPUTED_ZONES_END"
 
 USE_TERRAIN_PATCH = """
 // TERRAIN ZONE RENDERING — uses pre-computed TERRAIN_ZONES instead of buf()
-// Overrides the buffer-based render() for terrain-aware polygons.
 const _orig_render = render;
 function render(sc) {
   curSc = sc;
   ORD.forEach(id => { if (aL[id]) { map.removeLayer(aL[id]); delete aL[id]; } });
   const def = ZS[sc];
-  // Use terrain-aware polygons for z1/z2/z3; buffer for river channel
   ORD.forEach(id => {
     const d = def[id];
     const pts = (id !== 'rv' && TERRAIN_ZONES[sc] && TERRAIN_ZONES[sc][id])
-      ? TERRAIN_ZONES[sc][id]
-      : buf(RCL, BF[sc][id]);
+      ? TERRAIN_ZONES[sc][id] : buf(RCL, BF[sc][id]);
     if (!pts || pts.length < 3) return;
     const poly = L.polygon(pts, {
       color:d.c, fillColor:d.fc||d.c, fillOpacity:d.fo,
@@ -357,127 +335,117 @@ function render(sc) {
 }
 """
 
+def build_js_block(all_polys):
+    lines = [
+        ZONES_START,
+        "// Generated by generate_terrain_zones.py",
+        "// Source: USGS 3DEP ImageServer (1m LiDAR-derived, NAVD88)",
+        f"// Transects: {N_TRANSECTS} | Step: {STEP_FT}ft | Half-width: {HALF_WIDTH}ft",
+        "// Do not edit manually — re-run the script to update.",
+        "const TERRAIN_ZONES = {"
+    ]
+    for sc in ["partial","full"]:
+        lines.append(f"  {sc}: {{")
+        for zone in ["z3","z2","z1"]:
+            pts=all_polys[f"{sc}_{zone}"]
+            coords=", ".join(f"[{lat:.6f},{lon:.6f}]" for lat,lon in pts)
+            lines.append(f"    {zone}: [{coords}],")
+        lines.append("  },")
+    lines.append("};")
+    lines.append(ZONES_END)
+    return "\n".join(lines)
+
 def inject_into_html(html_path, js_block):
-    """Inject pre-computed zones into the HTML file."""
-    with open(html_path, "r", encoding="utf-8") as f:
-        html = f.read()
-
-    # Write backup
-    backup = html_path + ".bak"
-    with open(backup, "w", encoding="utf-8") as f:
-        f.write(html)
-    print(f"  Backup written: {backup}")
-
-    # Remove old terrain zones block if present
-    if ZONES_START_TAG in html and ZONES_END_TAG in html:
-        pattern = re.compile(
-            re.escape(ZONES_START_TAG) + r".*?" + re.escape(ZONES_END_TAG),
-            re.DOTALL
-        )
-        html = pattern.sub(ZONES_PLACEHOLDER, html)
-
-    # Inject new terrain zones block before </script>
-    if ZONES_PLACEHOLDER in html:
-        html = html.replace(ZONES_PLACEHOLDER, js_block)
+    with open(html_path,"r",encoding="utf-8") as f: html=f.read()
+    with open(html_path+".bak","w",encoding="utf-8") as f: f.write(html)
+    print(f"  Backup: {html_path}.bak")
+    if ZONES_START in html and ZONES_END in html:
+        pattern=re.compile(re.escape(ZONES_START)+r".*?"+re.escape(ZONES_END),re.DOTALL)
+        html=pattern.sub("// PRE_COMPUTED_ZONES_PLACEHOLDER",html)
+    if "// PRE_COMPUTED_ZONES_PLACEHOLDER" in html:
+        html=html.replace("// PRE_COMPUTED_ZONES_PLACEHOLDER",js_block)
     else:
-        # Insert before the last </script> tag
-        html = html.replace("</script>", js_block + "\n" + USE_TERRAIN_PATCH + "\n</script>", 1)
-
-    # Also inject USE_TERRAIN_PATCH if not already present
+        html=html.replace("</script>",js_block+"\n"+USE_TERRAIN_PATCH+"\n</script>",1)
     if "TERRAIN ZONE RENDERING" not in html:
-        html = html.replace("</script>", USE_TERRAIN_PATCH + "\n</script>", 1)
-
-    # Update model description in panel to note terrain-aware zones
-    html = html.replace(
-        "Manning's Buffer Method — Static Centerline",
-        "Manning's WSE + USGS 3DEP Terrain (pre-computed)"
-    )
-    html = html.replace(
-        "Manning's buffer zones · static centerline · instant render",
-        "Manning's WSE + USGS 3DEP terrain · pre-computed · instant render"
-    )
-    # Update gage site reference in model notes if present
-    html = html.replace("USGS-04130000", "USGS-04132052")
-
-    with open(html_path, "w", encoding="utf-8") as f:
-        f.write(html)
+        html=html.replace("</script>",USE_TERRAIN_PATCH+"\n</script>",1)
+    for old,new in [
+        ("Manning's buffer zones · static centerline · instant render",
+         "USGS 3DEP 1m LiDAR terrain · pre-computed · instant render"),
+        ("USGS LiDAR 2019 terrain · pre-computed · instant render",
+         "USGS 3DEP 1m LiDAR terrain · pre-computed · instant render"),
+        ("Manning's WSE + USGS 3DEP terrain · pre-computed · instant render",
+         "USGS 3DEP 1m LiDAR terrain · pre-computed · instant render"),
+        ("Manning's Buffer Method — Static Centerline",
+         "Manning's WSE + USGS 3DEP 1m LiDAR (ImageServer)"),
+        ("Manning's WSE + USGS 3DEP Terrain (pre-computed)",
+         "Manning's WSE + USGS 3DEP 1m LiDAR (ImageServer)"),
+        ("Manning's WSE + USGS LiDAR 2019 (MI_FEMA_Cheboygan)",
+         "Manning's WSE + USGS 3DEP 1m LiDAR (ImageServer)"),
+    ]:
+        html=html.replace(old,new)
+    with open(html_path,"w",encoding="utf-8") as f: f.write(html)
     print(f"  HTML updated: {html_path}")
 
 # ─────────────────────────────────────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────────────────────────────────────
 def main():
-    html_path = os.path.join(os.path.dirname(__file__), "cheboygan_flood_map_v3.html")
+    html_path=os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "cheboygan_flood_map_v3.html")
     if not os.path.exists(html_path):
         print(f"ERROR: Cannot find {html_path}")
         print("Make sure this script is in the same folder as cheboygan_flood_map_v3.html")
         sys.exit(1)
 
-    print("=" * 60)
-    print("Cheboygan Flood Map — Terrain Zone Generator")
-    print("=" * 60)
+    print("="*60)
+    print("Cheboygan Flood Map — Terrain Zone Generator v3")
+    print("No dependencies beyond Python standard library.")
+    print("="*60)
 
-    # Step 1: Build transect sample points
     print("\nStep 1/4  Generating transects...")
-    fracs = [i / (N_TRANSECTS - 1) for i in range(N_TRANSECTS)]
-    transects = [transect_points(f) for f in fracs]
-    all_pts_flat = [pt for t in transects for pt in t]
-    # Deduplicate (some points may overlap near centerline)
-    seen = set()
-    unique_pts = []
-    for pt in all_pts_flat:
-        key = f"{pt[0]:.6f},{pt[1]:.6f}"
-        if key not in seen:
-            seen.add(key)
-            unique_pts.append(pt)
-    print(f"  {N_TRANSECTS} transects × {len(transects[0])} points = {len(unique_pts)} unique sample points")
+    fracs=[i/(N_TRANSECTS-1) for i in range(N_TRANSECTS)]
+    transects=[transect_points(f) for f in fracs]
+    seen,unique_pts=set(),[]
+    for t in transects:
+        for pt in t:
+            key=f"{pt[0]:.6f},{pt[1]:.6f}"
+            if key not in seen: seen.add(key); unique_pts.append(pt)
+    print(f"  {N_TRANSECTS} transects × {len(transects[0])} pts = {len(unique_pts)} unique sample points")
 
-    # Step 2: Query USGS 3DEP elevations
-    print("\nStep 2/4  Querying USGS 3DEP elevations...")
-    print("  (This takes ~30–60 seconds — please wait)")
-    elev_data = query_all_points(unique_pts)
+    print(f"\nStep 2/4  Querying ground elevations...")
+    print(f"  (Using 3DEP ImageServer — expect 60–90 seconds)")
+    t0=time.time()
+    elev_data=query_all_points(unique_pts)
+    print(f"  Completed in {time.time()-t0:.0f}s")
 
-    # Check coverage
-    valid = sum(1 for v in elev_data.values() if v is not None)
-    coverage = valid / len(elev_data) * 100
-    print(f"  Coverage: {valid}/{len(elev_data)} points ({coverage:.0f}%)")
-    if coverage < 60:
-        print("  WARNING: Low elevation coverage. Zones may be inaccurate.")
-        print("  Check your internet connection and try again.")
-
-    # Step 3: Compute zone polygons
     print("\nStep 3/4  Computing terrain-aware zone polygons...")
-    all_polys = {}
-    for sc in ["partial", "full"]:
-        for zone in ["z3", "z2", "z1"]:
-            key = f"{sc}_{zone}"
-            pts = build_zone_polygon(transects, fracs, sc, zone, elev_data)
-            pts = smooth_polygon(pts, window=3)
-            all_polys[key] = pts
-            print(f"  {key}: {len(pts)} polygon vertices")
+    all_polys={}
+    for sc in ["partial","full"]:
+        for zone in ["z3","z2","z1"]:
+            key=f"{sc}_{zone}"
+            pts=build_zone_polygon(transects,fracs,sc,zone,elev_data)
+            pts=smooth_polygon(pts,window=3)
+            all_polys[key]=pts
+            print(f"  {key}: {len(pts)} vertices")
 
-    # Step 4: Inject into HTML
-    print("\nStep 4/4  Writing pre-computed zones into HTML...")
-    js_block = build_js_block(all_polys)
-    inject_into_html(html_path, js_block)
+    print("\nStep 4/4  Writing terrain zones into HTML...")
+    inject_into_html(html_path, build_js_block(all_polys))
 
-    print("\n" + "=" * 60)
-    print("Done! cheboygan_flood_map_v3.html has been updated.")
-    print("Flood zones now follow actual terrain elevation.")
-    print("The map still loads instantly — no runtime API calls.")
-    print("=" * 60)
+    print("\n"+"="*60)
+    print("Done! cheboygan_flood_map_v3.html updated.")
+    print(f"Zones: {N_TRANSECTS} transects, {STEP_FT}ft step, {HALF_WIDTH}ft corridor")
+    print("Map loads instantly — terrain data is pre-baked.")
+    print("="*60)
 
-    # Print elevation summary for key transects
-    print("\nElevation summary (ft MSL) at selected transect centers:")
-    for i, frac in enumerate([0.0, 0.25, 0.5, 0.75, 1.0]):
-        lat, lon, _, _ = rcl_at(frac)
-        key = f"{lat:.6f},{lon:.6f}"
-        elev = elev_data.get(key, "N/A")
-        wse_p = wse_at_distance("partial", frac)
-        wse_f = wse_at_distance("full", frac)
-        label = ["Dam", "25%", "50%", "75%", "Mouth"][i]
-        print(f"  {label:6s}  terrain={elev if isinstance(elev,str) else f'{elev:.1f} ft':>10}  "
-              f"WSE partial={wse_p:.1f}  WSE full={wse_f:.1f}")
+    print("\nGround elevation at centerline (NAVD88):")
+    for label,frac in [("Dam",0.0),("25%",0.25),("50%",0.5),("75%",0.75),("Mouth",1.0)]:
+        lat,lon,_,_=rcl_at(frac)
+        key=f"{lat:.6f},{lon:.6f}"
+        elev=elev_data.get(key)
+        wse_p=wse_at_distance("partial",frac)
+        wse_f=wse_at_distance("full",frac)
+        e=f"{elev:.1f}ft" if elev else "N/A"
+        print(f"  {label:5s}  terrain={e:>10}  WSE partial={wse_p:.1f}ft  WSE full={wse_f:.1f}ft")
 
-if __name__ == "__main__":
+if __name__=="__main__":
     main()
