@@ -45,13 +45,13 @@ RCL = [
 # +0.5 ft snowmelt saturation correction applied to terrain threshold
 SCENARIOS = {
     "partial": {
-        "WSE_DAM": 590.5,    # 581.5 tailwater + 9 ft surge (partial breach head)
+        "WSE_DAM": 597.5,    # crest 596.346 + ~1.15 ft surge head (partial breach overtopping)
         "BC":      581.5,    # downstream boundary condition (Lake Huron + 0.5 sat)
         "GAMMA":   0.35,     # Manning's power-law attenuation exponent
         "Q_label": "20,000–35,000 cfs",
     },
     "full": {
-        "WSE_DAM": 592.85,   # near full reservoir level (581.5 + 11.35 ft surge)
+        "WSE_DAM": 599.0,    # crest 596.346 + ~2.65 ft (near full reservoir head, catastrophic)
         "BC":      581.5,
         "GAMMA":   0.25,
         "Q_label": "50,000–100,000 cfs",
@@ -133,46 +133,73 @@ def wse_at_distance(scenario, frac):
 
 # ─────────────────────────────────────────────────────────────────────────────
 # USGS 3DEP ELEVATION QUERY
+# Three endpoints tried in order; failed points retried sequentially at the end.
 # ─────────────────────────────────────────────────────────────────────────────
-EPQS_URL = "https://epqs.nationalmap.gov/v1/json"
+
 _elev_cache = {}
 
-def query_elevation(lat, lon, retries=3, timeout=8):
-    """Query USGS 3DEP EPQS for elevation at a single point. Returns ft MSL."""
+def _try_epqs_v1(lat, lon, timeout):
+    url = (f"https://epqs.nationalmap.gov/v1/json"
+           f"?x={lon:.6f}&y={lat:.6f}&wkid=4326&units=Feet&includeDate=false")
+    req = urllib.request.Request(url, headers={"User-Agent": "CheboyganFloodMap/1.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        data = json.loads(r.read())
+        val = float(data.get("value", -9999))
+        return val if val > -9000 else None
+
+def _try_epqs_legacy(lat, lon, timeout):
+    url = (f"https://nationalmap.gov/epqs/pqs.php"
+           f"?x={lon:.6f}&y={lat:.6f}&units=Feet&output=json")
+    req = urllib.request.Request(url, headers={"User-Agent": "CheboyganFloodMap/1.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        data = json.loads(r.read())
+        val = float(data.get("USGS_Elevation_Point_Query_Service", {})
+                    .get("Elevation_Query", {}).get("Elevation", -9999))
+        return val if val > -9000 else None
+
+def _try_open_elevation(lat, lon, timeout):
+    url = f"https://api.open-elevation.com/api/v1/lookup?locations={lat:.6f},{lon:.6f}"
+    req = urllib.request.Request(url, headers={"User-Agent": "CheboyganFloodMap/1.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        data = json.loads(r.read())
+        val_m = float(data.get("results", [{}])[0].get("elevation", -9999))
+        val = val_m * 3.28084   # metres → feet
+        return val if val_m > -9000 else None
+
+ENDPOINT_FNS = [_try_epqs_v1, _try_epqs_legacy, _try_open_elevation]
+
+def query_elevation(lat, lon, timeout=10, max_retries=4):
+    """Try each endpoint in order with exponential back-off. Returns ft MSL or None."""
     key = f"{lat:.6f},{lon:.6f}"
     if key in _elev_cache:
         return _elev_cache[key]
-    params = urllib.parse.urlencode({
-        "x": f"{lon:.6f}", "y": f"{lat:.6f}",
-        "wkid": "4326", "units": "Feet", "includeDate": "false"
-    })
-    url = f"{EPQS_URL}?{params}"
-    for attempt in range(retries):
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "CheboyganFloodMap/1.0"})
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                data = json.loads(resp.read())
-                val = float(data.get("value", -9999))
-                if val < -9000:
-                    return None
-                _elev_cache[key] = val
-                return val
-        except Exception:
-            if attempt < retries - 1:
-                time.sleep(0.5 * (attempt + 1))
+    for fn in ENDPOINT_FNS:
+        for attempt in range(max_retries):
+            try:
+                val = fn(lat, lon, timeout)
+                if val is not None:
+                    _elev_cache[key] = val
+                    return val
+            except Exception:
+                time.sleep(min(0.3 * (2 ** attempt), 4.0))
+        time.sleep(0.2)
     return None
 
 def query_all_points(all_pts):
-    """Query elevations for all points using a thread pool. Returns dict key→elev."""
-    print(f"  Querying {len(all_pts)} elevation points from USGS 3DEP...")
+    """
+    Phase 1 — parallel (3 threads, gentle on API).
+    Phase 2 — sequential retry of failures with longer timeouts.
+    """
+    total = len(all_pts)
+    print(f"  Querying {total} elevation points (3 endpoints available as fallback)...")
+    print("  Phase 1: parallel requests...")
+
     results = {}
-    failed = 0
-    # Batch with max 8 concurrent threads (respectful to USGS API)
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        futures = {
-            executor.submit(query_elevation, lat, lon): (lat, lon)
-            for lat, lon, _ in all_pts
-        }
+    failed_pts = []
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = {executor.submit(query_elevation, lat, lon): (lat, lon)
+                   for lat, lon, _ in all_pts}
         done = 0
         for future in as_completed(futures):
             lat, lon = futures[future]
@@ -181,14 +208,36 @@ def query_all_points(all_pts):
                 val = future.result()
                 results[key] = val
                 if val is None:
-                    failed += 1
+                    failed_pts.append((lat, lon))
             except Exception:
                 results[key] = None
-                failed += 1
+                failed_pts.append((lat, lon))
             done += 1
-            if done % 20 == 0:
-                print(f"    {done}/{len(all_pts)} complete ({failed} failed)...")
-    print(f"  Done. {len(all_pts)-failed}/{len(all_pts)} elevations retrieved.")
+            if done % 30 == 0 or done == total:
+                print(f"    {done}/{total}  —  {len(failed_pts)} failed so far")
+
+    if failed_pts:
+        print(f"\n  Phase 2: retrying {len(failed_pts)} failed points one-by-one...")
+        still_failed = 0
+        for i, (lat, lon) in enumerate(failed_pts):
+            key = f"{lat:.6f},{lon:.6f}"
+            time.sleep(0.5)
+            val = query_elevation(lat, lon, timeout=15, max_retries=6)
+            results[key] = val
+            if val is None:
+                still_failed += 1
+            if (i + 1) % 10 == 0:
+                print(f"    Retry {i+1}/{len(failed_pts)}  —  {still_failed} still failing")
+        print(f"  Phase 2 done: recovered {len(failed_pts)-still_failed}/{len(failed_pts)}")
+
+    valid = sum(1 for v in results.values() if v is not None)
+    coverage = valid / total * 100
+    print(f"\n  Final coverage: {valid}/{total} points ({coverage:.0f}%)")
+    if coverage < 50:
+        print("  ⚠ Coverage below 50% — zones may revert to buffer fallback.")
+        print("  USGS may be overloaded. Try running the script again in a few minutes.")
+    elif coverage < 80:
+        print("  ⚠ Partial coverage — some zones may use buffer fallback.")
     return results
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -347,6 +396,8 @@ def inject_into_html(html_path, js_block):
         "Manning's buffer zones · static centerline · instant render",
         "Manning's WSE + USGS 3DEP terrain · pre-computed · instant render"
     )
+    # Update gage site reference in model notes if present
+    html = html.replace("USGS-04130000", "USGS-04132052")
 
     with open(html_path, "w", encoding="utf-8") as f:
         f.write(html)

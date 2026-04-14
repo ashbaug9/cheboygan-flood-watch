@@ -9,14 +9,14 @@
 // Re-run the script to update after changing RCL coordinates.
 const TERRAIN_ZONES = {
   partial: {
-    z3: [[45.636683,-84.479689], [45.637763,-84.479534], [45.639300,-84.478580], [45.640847,-84.477220], [45.642256,-84.474716], [45.643835,-84.472371], [45.645480,-84.469637], [45.647208,-84.467492], [45.649063,-84.465620], [45.650838,-84.464152], [45.652708,-84.462472], [45.654521,-84.460662], [45.656407,-84.458925], [45.658298,-84.457198], [45.660193,-84.455481], [45.662079,-84.453775], [45.663965,-84.452069], [45.666396,-84.453581], [45.667570,-84.456230], [45.667486,-84.460016], [45.665600,-84.461721], [45.663714,-84.463427], [45.661839,-84.465126], [45.659969,-84.466834], [45.658102,-84.468553], [45.656202,-84.470288], [45.654292,-84.472003], [45.652205,-84.473711], [45.650300,-84.475161], [45.647840,-84.475493], [45.645639,-84.475988], [45.643352,-84.476806], [45.641582,-84.478703], [45.639531,-84.479730], [45.637717,-84.480158], [45.636504,-84.479987]],
-    z2: [[45.636683,-84.479689], [45.637793,-84.479657], [45.639563,-84.479107], [45.641218,-84.477957], [45.642702,-84.475544], [45.644154,-84.473008], [45.645691,-84.470063], [45.647314,-84.467705], [45.649063,-84.465620], [45.650838,-84.464152], [45.652708,-84.462472], [45.654521,-84.460662], [45.656407,-84.458925], [45.658298,-84.457198], [45.660193,-84.455481], [45.662079,-84.453775], [45.664552,-84.453394], [45.666396,-84.453581], [45.667570,-84.456230], [45.666899,-84.458691], [45.665600,-84.461721], [45.663714,-84.463427], [45.661839,-84.465126], [45.659969,-84.466834], [45.658102,-84.468553], [45.656202,-84.470288], [45.654244,-84.471892], [45.652157,-84.473600], [45.650252,-84.475050], [45.647840,-84.475493], [45.645584,-84.475883], [45.643240,-84.476600], [45.641469,-84.478497], [45.639473,-84.479629], [45.637717,-84.480158], [45.636504,-84.479987]],
-    z1: [[45.636683,-84.479689], [45.637793,-84.479657], [45.639563,-84.479107], [45.641272,-84.478062], [45.642968,-84.476075], [45.644578,-84.473860], [45.646061,-84.470810], [45.647472,-84.468025], [45.649063,-84.465620], [45.650838,-84.464152], [45.652708,-84.462472], [45.654521,-84.460662], [45.656407,-84.458925], [45.658298,-84.457198], [45.660193,-84.455481], [45.662079,-84.453775], [45.664552,-84.453394], [45.666396,-84.453581], [45.667570,-84.456230], [45.666899,-84.458691], [45.665600,-84.461721], [45.663714,-84.463427], [45.661839,-84.465126], [45.659969,-84.466834], [45.658102,-84.468553], [45.656202,-84.470288], [45.654052,-84.471448], [45.651707,-84.472319], [45.649327,-84.472809], [45.647108,-84.473696], [45.645109,-84.474923], [45.643240,-84.476600], [45.641469,-84.478497], [45.639473,-84.479629], [45.637717,-84.480158], [45.636504,-84.479987]],
+    z3: [[45.637468,-84.478578], [45.638476,-84.478343], [45.639607,-84.476682], [45.640006,-84.475673], [45.641151,-84.472636], [45.642925,-84.470571], [45.645005,-84.468677], [45.646997,-84.467065], [45.649015,-84.465509], [45.650790,-84.464041], [45.652660,-84.462361], [45.654521,-84.460662], [45.656407,-84.458925], [45.658298,-84.457198], [45.660193,-84.455481], [45.662079,-84.453775], [45.663965,-84.452069], [45.666396,-84.453581], [45.667570,-84.456230], [45.667486,-84.460016], [45.665600,-84.461721], [45.663714,-84.463427], [45.661839,-84.465126], [45.659969,-84.466834], [45.658102,-84.468553], [45.656202,-84.470288], [45.654292,-84.472003], [45.652205,-84.473711], [45.650300,-84.475161], [45.648421,-84.476666], [45.646762,-84.478212], [45.645115,-84.480140], [45.642763,-84.480863], [45.640169,-84.480839], [45.637790,-84.480239], [45.636577,-84.480067]],
+    z2: [[45.637468,-84.478578], [45.638476,-84.478343], [45.639665,-84.476783], [45.640064,-84.475774], [45.641209,-84.472737], [45.643031,-84.470784], [45.645110,-84.468890], [45.647102,-84.467279], [45.649015,-84.465509], [45.650790,-84.464041], [45.652660,-84.462361], [45.654521,-84.460662], [45.656407,-84.458925], [45.658298,-84.457198], [45.660193,-84.455481], [45.662079,-84.453775], [45.664552,-84.453394], [45.666396,-84.453581], [45.667570,-84.456230], [45.666899,-84.458691], [45.665600,-84.461721], [45.663714,-84.463427], [45.661839,-84.465126], [45.659969,-84.466834], [45.658102,-84.468553], [45.656202,-84.470288], [45.654292,-84.472003], [45.652205,-84.473711], [45.650300,-84.475161], [45.648421,-84.476666], [45.646762,-84.478212], [45.645115,-84.480140], [45.642763,-84.480863], [45.640169,-84.480839], [45.637790,-84.480239], [45.636577,-84.480067]],
+    z1: [[45.636683,-84.479689], [45.637763,-84.479534], [45.639068,-84.478176], [45.640235,-84.476081], [45.641432,-84.473151], [45.643191,-84.471102], [45.645216,-84.469104], [45.647155,-84.467385], [45.649015,-84.465509], [45.650790,-84.464041], [45.652660,-84.462361], [45.654521,-84.460662], [45.656407,-84.458925], [45.658298,-84.457198], [45.660193,-84.455481], [45.662079,-84.453775], [45.664552,-84.453394], [45.666396,-84.453581], [45.667570,-84.456230], [45.666899,-84.458691], [45.665600,-84.461721], [45.663714,-84.463427], [45.661839,-84.465126], [45.659969,-84.466834], [45.658102,-84.468553], [45.656202,-84.470288], [45.654292,-84.472003], [45.652205,-84.473711], [45.650300,-84.475161], [45.648421,-84.476666], [45.646762,-84.478212], [45.645115,-84.480140], [45.642763,-84.480863], [45.640169,-84.480839], [45.637717,-84.480158], [45.636504,-84.479987]],
   },
   full: {
-    z3: [[45.636683,-84.479689], [45.637763,-84.479534], [45.639126,-84.478277], [45.640456,-84.476497], [45.641653,-84.473567], [45.643354,-84.471418], [45.645216,-84.469104], [45.647155,-84.467385], [45.649063,-84.465620], [45.650838,-84.464152], [45.652708,-84.462472], [45.654521,-84.460662], [45.656407,-84.458925], [45.658298,-84.457198], [45.660193,-84.455481], [45.662079,-84.453775], [45.663965,-84.452069], [45.666396,-84.453581], [45.667570,-84.456230], [45.667486,-84.460016], [45.665600,-84.461721], [45.663714,-84.463427], [45.661839,-84.465126], [45.659969,-84.466834], [45.658102,-84.468553], [45.656202,-84.470288], [45.654292,-84.472003], [45.652205,-84.473711], [45.650300,-84.475161], [45.648421,-84.476666], [45.646762,-84.478212], [45.645115,-84.480140], [45.642763,-84.480863], [45.640169,-84.480839], [45.637717,-84.480158], [45.636504,-84.479987]],
-    z2: [[45.636683,-84.479689], [45.637763,-84.479534], [45.639242,-84.478479], [45.640735,-84.477014], [45.642144,-84.474510], [45.643728,-84.472160], [45.645427,-84.469530], [45.647155,-84.467385], [45.649063,-84.465620], [45.650838,-84.464152], [45.652708,-84.462472], [45.654521,-84.460662], [45.656407,-84.458925], [45.658298,-84.457198], [45.660193,-84.455481], [45.662079,-84.453775], [45.664552,-84.453394], [45.666396,-84.453581], [45.667570,-84.456230], [45.666899,-84.458691], [45.665600,-84.461721], [45.663714,-84.463427], [45.661839,-84.465126], [45.659969,-84.466834], [45.658102,-84.468553], [45.656202,-84.470288], [45.654292,-84.472003], [45.652205,-84.473711], [45.650300,-84.475161], [45.648421,-84.476666], [45.646708,-84.478107], [45.644422,-84.478925], [45.642070,-84.479648], [45.639531,-84.479730], [45.637717,-84.480158], [45.636504,-84.479987]],
-    z1: [[45.636683,-84.479689], [45.637793,-84.479657], [45.639563,-84.479107], [45.641218,-84.477957], [45.642702,-84.475544], [45.644154,-84.473008], [45.645691,-84.470063], [45.647314,-84.467705], [45.649063,-84.465620], [45.650838,-84.464152], [45.652708,-84.462472], [45.654521,-84.460662], [45.656407,-84.458925], [45.658298,-84.457198], [45.660193,-84.455481], [45.662079,-84.453775], [45.664552,-84.453394], [45.666396,-84.453581], [45.667570,-84.456230], [45.666899,-84.458691], [45.665600,-84.461721], [45.663714,-84.463427], [45.661839,-84.465126], [45.659969,-84.466834], [45.658102,-84.468553], [45.656202,-84.470288], [45.654292,-84.472003], [45.652205,-84.473711], [45.650300,-84.475161], [45.647840,-84.475493], [45.645584,-84.475883], [45.643298,-84.476700], [45.641527,-84.478597], [45.639531,-84.479730], [45.637717,-84.480158], [45.636504,-84.479987]],
+    z3: [[45.637396,-84.478498], [45.638192,-84.477400], [45.639395,-84.475820], [45.639794,-84.474810], [45.641151,-84.472636], [45.642925,-84.470571], [45.645005,-84.468677], [45.646997,-84.467065], [45.649015,-84.465509], [45.650790,-84.464041], [45.652660,-84.462361], [45.654521,-84.460662], [45.656407,-84.458925], [45.658298,-84.457198], [45.660193,-84.455481], [45.662079,-84.453775], [45.663965,-84.452069], [45.666396,-84.453581], [45.667570,-84.456230], [45.667486,-84.460016], [45.665600,-84.461721], [45.663714,-84.463427], [45.661839,-84.465126], [45.659969,-84.466834], [45.658102,-84.468553], [45.656202,-84.470288], [45.654292,-84.472003], [45.652205,-84.473711], [45.650300,-84.475161], [45.648421,-84.476666], [45.646762,-84.478212], [45.645115,-84.480140], [45.642763,-84.480863], [45.640169,-84.480839], [45.637790,-84.480239], [45.636504,-84.479987]],
+    z2: [[45.637468,-84.478578], [45.638476,-84.478343], [45.639607,-84.476682], [45.640006,-84.475673], [45.641151,-84.472636], [45.642925,-84.470571], [45.645005,-84.468677], [45.646997,-84.467065], [45.649015,-84.465509], [45.650790,-84.464041], [45.652660,-84.462361], [45.654521,-84.460662], [45.656407,-84.458925], [45.658298,-84.457198], [45.660193,-84.455481], [45.662079,-84.453775], [45.664552,-84.453394], [45.666396,-84.453581], [45.667570,-84.456230], [45.666899,-84.458691], [45.665600,-84.461721], [45.663714,-84.463427], [45.661839,-84.465126], [45.659969,-84.466834], [45.658102,-84.468553], [45.656202,-84.470288], [45.654292,-84.472003], [45.652205,-84.473711], [45.650300,-84.475161], [45.648421,-84.476666], [45.646762,-84.478212], [45.645115,-84.480140], [45.642763,-84.480863], [45.640169,-84.480839], [45.637790,-84.480239], [45.636577,-84.480067]],
+    z1: [[45.637408,-84.478677], [45.638417,-84.478442], [45.639605,-84.476882], [45.640064,-84.475774], [45.641209,-84.472737], [45.643031,-84.470784], [45.645110,-84.468890], [45.647102,-84.467279], [45.649015,-84.465509], [45.650790,-84.464041], [45.652660,-84.462361], [45.654521,-84.460662], [45.656407,-84.458925], [45.658298,-84.457198], [45.660193,-84.455481], [45.662079,-84.453775], [45.664552,-84.453394], [45.666396,-84.453581], [45.667570,-84.456230], [45.666899,-84.458691], [45.665600,-84.461721], [45.663714,-84.463427], [45.661839,-84.465126], [45.659969,-84.466834], [45.658102,-84.468553], [45.656202,-84.470288], [45.654292,-84.472003], [45.652205,-84.473711], [45.650300,-84.475161], [45.648421,-84.476666], [45.646762,-84.478212], [45.645115,-84.480140], [45.642763,-84.480863], [45.640169,-84.480839], [45.637790,-84.480239], [45.636577,-84.480067]],
   },
 };
 // PRE_COMPUTED_ZONES_END
@@ -134,8 +134,8 @@ function render(sc) {
 <div id="tb">
   <div class="tl">CHB<em>FLOOD</em></div>
   <div id="tbd" class="br">⚠ READY</div>
-  <div id="tlv">Level: <span id="tlvv">13.75"</span> below crest</div>
-  <div id="tick"><div class="ti"><span class="hi">⚠ READY ACTIVE</span><span class="sep">·</span><span>13.75" below top · +3"/day</span><span class="sep">·</span><span>Crane removed gates overnight</span><span class="sep">·</span><span>US-23 RAISED · Lincoln Ave detour</span><span class="sep">·</span><span>Flood Watch until Wed Apr 15 8am</span><span class="sep">·</span><span>smart911.com · 211 · 911</span><span class="sep">·</span><span class="hi">⚠ READY ACTIVE</span><span class="sep">·</span><span>13.75" below top · +3"/day</span><span class="sep">·</span><span>Crane removed gates overnight</span><span class="sep">·</span><span>US-23 RAISED · Lincoln Ave detour</span><span class="sep">·</span><span>Flood Watch until Wed Apr 15 8am</span><span class="sep">·</span><span>smart911.com · 211 · 911</span></div></div>
+  <div id="tlv">Level: <span id="tlvv">8.8"</span> below crest</div>
+  <div id="tick"><div class="ti"><span class="hi">⚠ APPROACHING SET</span><span class="sep">·</span><span>~8.8" below top · rising overnight</span><span class="sep">·</span><span>SET threshold at 6" · GO at 1"</span><span class="sep">·</span><span>US-23 RAISED · Lincoln Ave detour</span><span class="sep">·</span><span>Flood Watch until Wed Apr 15 8am</span><span class="sep">·</span><span>smart911.com · 211 · 911</span><span class="sep">·</span><span class="hi">⚠ APPROACHING SET</span><span class="sep">·</span><span>~8.8" below top · rising overnight</span><span class="sep">·</span><span>SET threshold at 6" · GO at 1"</span><span class="sep">·</span><span>US-23 RAISED · Lincoln Ave detour</span><span class="sep">·</span><span>Flood Watch until Wed Apr 15 8am</span><span class="sep">·</span><span>smart911.com · 211 · 911</span></div></div>
   <div class="ld"></div><div id="tbt">—</div>
 </div>
 <div id="scb"><button class="sb pb act" id="btnp" onclick="setSc('partial')">Partial Breach</button><div class="sdiv"></div><button class="sb fb" id="btnf" onclick="setSc('full')">Full Breach</button></div>
@@ -147,6 +147,8 @@ function render(sc) {
     <div class="sg">
       <div class="sc2"><div class="sk">Below crest</div><div class="sv w" id="svi">13.75"</div></div>
       <div class="sc2"><div class="sk">Rise rate</div><div class="sv a">+3"/day</div></div>
+      <div class="sc2"><div class="sk">WSE NAVD88</div><div class="sv w" id="sv-wse">—</div></div>
+      <div class="sc2"><div class="sk">Crest NAVD88</div><div class="sv">596.35 ft</div></div>
       <div class="sc2"><div class="sk">Dam height</div><div class="sv">21 ft</div></div>
       <div class="sc2"><div class="sk">Reservoir</div><div class="sv">83,000 ac-ft</div></div>
       <div class="sc2"><div class="sk">Pumps</div><div class="sv w">5+ active</div></div>
@@ -156,7 +158,7 @@ function render(sc) {
   <div class="pb2">
     <div class="pbl">Ready · Set · Go</div>
     <div class="rsg"><div class="rs rr" id="rsr">✓ READY</div><div class="rs" id="rss">SET</div><div class="rs" id="rsg2">GO</div></div>
-    <div class="rn"><strong>READY since 5:26am Apr 13.</strong> Pack go-bag. Avoid riverbanks. SET at 6". GO at 1".</div>
+    <div class="rn"><strong>READY since 5:26am Apr 13.</strong> Pack go-bag. Avoid riverbanks. SET at 6". GO at 1". Water still rising as of Apr 14.</div>
   </div>
   <div class="pb2"><div class="pbl">Scenario</div><div class="sn partial" id="scd"><strong>Partial Breach — Overtopping / Erosional Failure</strong>Est. peak 20,000–35,000 cfs (Froehlich 2008). Manning's buffer method. +0.5 ft snowmelt saturation correction.</div></div>
   <div class="pb2"><div class="pbl">Flood Zones</div><div id="zlist"></div></div>
@@ -192,12 +194,21 @@ function render(sc) {
   <div class="pb2">
     <div class="pbl">Latest Updates</div>
     <div id="updl">
-      <div class="upd"><div class="ud dc"></div><div><div class="ut">MON APR 13 · OVERNIGHT</div><div class="um"><strong>Crane removes additional gates.</strong> Hydro turbines restarted after 2023 fire shutdown.</div></div></div>
-      <div class="upd"><div class="ud dc"></div><div><div class="ut">MON APR 13 · 07:00</div><div class="um">DNR 7am report: <strong>13.75" below top.</strong></div></div></div>
+      <div class="upd"><div class="ud dc"></div><div><div class="ut">MON APR 13 · OVERNIGHT</div><div class="um"><strong>Crane removes additional gates.</strong> Hydro turbines restarted. Water continues rising despite interventions.</div></div></div>
+      <div class="upd"><div class="ud dc"></div><div><div class="ut">MON APR 13 · 07:00</div><div class="um">DNR 7am report: <strong>13.75" below top.</strong> WSE 595.2 ft NAVD88.</div></div></div>
       <div class="upd"><div class="ud dc"></div><div><div class="ut">MON APR 13 · 05:26</div><div class="um"><strong>READY status reached.</strong> 12" below, rising 3"+/day.</div></div></div>
       <div class="upd"><div class="ud dw"></div><div><div class="ut">SUN APR 12 · 19:00</div><div class="um"><strong>US-23 bridge raised.</strong> Detour via Lincoln Ave Bridge.</div></div></div>
       <div class="upd"><div class="ud di"></div><div><div class="ut">FRI APR 10 · 10:00</div><div class="um">SEOC activated. Governor declares State of Emergency.</div></div></div>
     </div>
+  </div>
+  <div class="pb2">
+    <div class="pbl">Upstream Watershed</div>
+    <div class="sn" id="wshed-info" style="font-size:10px;color:#666;line-height:1.6">
+      <strong style="color:#3cb45a;font-size:10.5px">900,000-acre Cheboygan River Basin</strong>
+      Toggle the watershed boundary using the 🌊 Watershed button. The entire shaded area drains into the dam — every lake, river, and stream shown is contributing to the current flood event.<br><br>
+      Key upstream sources: Mullet Lake, Burt Lake, Black Lake, Indian River, Crooked Lake, Sturgeon River, Maple River.
+    </div>
+    <div id="wshed-status" style="font-size:10px;color:#444;margin-top:6px;font-family:'JetBrains Mono',monospace;"></div>
   </div>
   <div class="pb2" style="border:none">
     <div class="pbl">Emergency Resources</div>
@@ -215,6 +226,7 @@ function render(sc) {
   <button class="lb active" id="lb-hyb" onclick="setLayer('hyb')">🛰 Sat+Labels</button>
   <button class="lb" id="lb-osm" onclick="setLayer('osm')">🗺 Street</button>
   <button class="lb" id="lb-topo" onclick="setLayer('topo')">⛰ Topo</button>
+  <button class="lb" id="lb-wshed" onclick="togWatershed()" style="margin-top:6px;border-color:rgba(60,180,90,.2);color:#2a7a3a">🌊 Watershed</button>
 </div>
 
 <div id="mn"><span id="mns">Manning's WSE + USGS 3DEP terrain · pre-computed · instant render</span></div>
@@ -456,7 +468,7 @@ L.control({position:'bottomright'}).onAdd=function(){
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><div style="width:12px;height:12px;border-radius:2px;background:#d96b1a;flex-shrink:0"></div><span style="color:#e08845;font-weight:600">Zone 2</span><span style="color:#666"> High risk · 2–4 ft</span></div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><div style="width:12px;height:12px;border-radius:2px;background:#c8a020;flex-shrink:0"></div><span style="color:#d8b840;font-weight:600">Zone 3</span><span style="color:#666"> Watch · 0.5–2 ft</span></div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px"><div style="width:12px;height:12px;border-radius:2px;background:#2288d8;flex-shrink:0"></div><span style="color:#5aa0d8;font-weight:600">River</span><span style="color:#666"> Channel (closed)</span></div>
-    <div style="border-top:1px solid rgba(255,255,255,.07);padding-top:6px;font-size:9px;color:#444;line-height:1.6">🟡 Yellow dots = wave arrival times<br>Click any zone for details<br>Not a certified hydraulic model</div>`;
+    <div style="border-top:1px solid rgba(255,255,255,.07);padding-top:6px;font-size:9px;color:#444;line-height:1.6">🟡 Yellow dots = wave arrival times<br>🌊 Watershed button = upstream basin<br>Click any zone for details<br>Not a certified hydraulic model</div>`;
   return d;
 }.addTo(map);
 
@@ -469,6 +481,9 @@ function applyD(d){
   document.getElementById('gv').textContent=d.in+'" below';
   document.getElementById('svi').textContent=d.in+'"';
   document.getElementById('tlvv').textContent=d.in+'"';
+  // Show WSE in ft NAVD88 if available
+  const wseEl=document.getElementById('sv-wse');
+  if(wseEl&&d.wse) wseEl.textContent=d.wse.toFixed(2)+' ft';
   const b=document.getElementById('tbd');
   const lb={monitor:'✓ OK',ready:'⚠ READY',set:'⚠ SET',go:'🚨 GO'};
   const cb={monitor:'br',ready:'br',set:'bs',go:'bg2'};
@@ -480,23 +495,58 @@ function applyD(d){
   document.getElementById('tbt').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
 }
 
+// Dam crest elevation ft NAVD88 — back-calculated from USGS site 04132052:
+// Apr 13 7am WSE reading: 595.2 ft NAVD88, officials confirmed 13.75" below crest
+// Crest = 595.2 + (13.75/12) = 596.346 ft NAVD88
+const DAM_CREST_NAVD88 = 596.346;
+
 async function fetchW(){
   try{
-    const r=await fetch('https://waterservices.usgs.gov/nwis/iv/?sites=04130000&parameterCd=00065&format=json&period=PT2H',{cache:'no-cache'});
+    // Site 04132052: Cheboygan R at Lincoln Ave — at the dam complex
+    // Parameter 63160: water surface elevation, ft NAVD88 (direct crest comparison)
+    const r=await fetch(
+      'https://waterservices.usgs.gov/nwis/iv/?sites=04132052&parameterCd=63160&format=json&period=PT2H',
+      {cache:'no-cache'}
+    );
     if(!r.ok)throw 0;
-    const j=await r.json(),v=j?.value?.timeSeries?.[0]?.values?.[0]?.value;
+    const j=await r.json();
+    // Find the 63160 time series
+    const ts=(j?.value?.timeSeries||[]).find(s=>s.variable?.variableCode?.[0]?.value==='63160');
+    const v=ts?.values?.[0]?.value;
     if(v&&v.length){
-      const lt=v[v.length-1],gh=parseFloat(lt.value);
+      const lt=v[v.length-1];
+      const wse=parseFloat(lt.value);
+      if(!isNaN(wse)&&wse>500){
+        const below=Math.max(0, DAM_CREST_NAVD88 - wse);
+        const belowIn=Math.round(below*12*10)/10; // inches, 1 decimal
+        const st=belowIn<=1?'go':belowIn<=6?'set':belowIn<=12?'ready':'monitor';
+        applyD({in:belowIn, st, wse});
+        const l=document.getElementById('updl'),e=document.createElement('div');
+        e.className='upd';
+        e.innerHTML=`<div class="ud di"></div><div><div class="ut">USGS 04132052 LIVE · ${new Date(lt.dateTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div><div class="um">WSE: <strong>${wse.toFixed(2)} ft NAVD88</strong> · ${belowIn}" below crest</div></div>`;
+        l.insertBefore(e,l.firstChild);
+        return;
+      }
+    }
+    // Fallback: try gage height from same site
+    const r2=await fetch(
+      'https://waterservices.usgs.gov/nwis/iv/?sites=04132052&parameterCd=00065&format=json&period=PT2H',
+      {cache:'no-cache'}
+    );
+    if(!r2.ok)throw 0;
+    const j2=await r2.json(),v2=j2?.value?.timeSeries?.[0]?.values?.[0]?.value;
+    if(v2&&v2.length){
+      const lt=v2[v2.length-1],gh=parseFloat(lt.value);
       const est=Math.max(0.5,Math.round(20-(gh-8)*2));
       const st=est<=1?'go':est<=6?'set':est<=12?'ready':'monitor';
       applyD({in:est,st});
       const l=document.getElementById('updl'),e=document.createElement('div');
       e.className='upd';
-      e.innerHTML=`<div class="ud di"></div><div><div class="ut">USGS LIVE · ${new Date(lt.dateTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div><div class="um">Gage height: <strong>${gh} ft</strong></div></div>`;
-      l.insertBefore(e,l.firstChild); return;
+      e.innerHTML=`<div class="ud di"></div><div><div class="ut">USGS 04132052 LIVE · ${new Date(lt.dateTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div><div class="um">Gage height: <strong>${gh} ft</strong> (elevation sensor unavailable)</div></div>`;
+      l.insertBefore(e,l.firstChild);
     }
   }catch{}
-  applyD({in:13.75,st:'ready'});
+  applyD({in:8.8,st:'ready'});
 }
 
 let panO=true;
@@ -508,9 +558,99 @@ function togPanel(){
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// NLDI WATERSHED BOUNDARY — USGS Network Linked Data Index
+// Fetches the upstream basin polygon for site 04132052 (Lincoln Ave gage).
+// This is the complete ~900,000-acre watershed draining into the dam.
+// API: https://api.water.usgs.gov/nldi/linked-data/nwissite/USGS-04132052/basin
+// ─────────────────────────────────────────────────────────────────────────────
+let watershedLayer = null;
+let watershedOn = false;
+let watershedLoaded = false;
+let watershedLoading = false;
+
+async function loadWatershed() {
+  if (watershedLoaded || watershedLoading) return;
+  watershedLoading = true;
+  const btn = document.getElementById('lb-wshed');
+  const status = document.getElementById('wshed-status');
+  btn.textContent = '⟳ Loading…';
+  status.textContent = 'Fetching basin boundary from USGS NLDI…';
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 12000);
+    const r = await fetch(
+      'https://api.water.usgs.gov/nldi/linked-data/nwissite/USGS-04132052/basin',
+      { signal: ctrl.signal }
+    );
+    clearTimeout(t);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const gj = await r.json();
+    watershedLayer = L.geoJSON(gj, {
+      style: {
+        color: '#3cb45a',
+        weight: 2,
+        opacity: 0.8,
+        fillColor: '#3cb45a',
+        fillOpacity: 0.07,
+        dashArray: '6 4',
+      }
+    }).bindPopup(
+      `<h4>🌊 Cheboygan River Watershed</h4>
+      <b>Area:</b> ~900,000 acres (1,400 sq mi)<br>
+      <b>Source:</b> USGS NLDI — site USGS-04132052<br>
+      <b>Outlet:</b> Cheboygan Lock &amp; Dam / Lincoln Ave<hr>
+      The entire shaded area is draining into the dam right now.<br>
+      Key sources: Mullet Lake, Burt Lake, Black Lake, Indian River,<br>
+      Crooked Lake, Sturgeon River, Maple River.`
+    );
+    watershedLoaded = true;
+    watershedLoading = false;
+    // Count approximate area from features
+    const props = gj?.features?.[0]?.properties;
+    const areaNote = props ? '' : '';
+    status.textContent = '✓ Basin boundary loaded from USGS NLDI';
+    setTimeout(() => { status.textContent = ''; }, 4000);
+    // Auto-show after loading
+    watershedLayer.addTo(map);
+    watershedOn = true;
+    btn.textContent = '🌊 Watershed';
+    btn.style.background = 'rgba(60,180,90,.15)';
+    btn.style.color = '#3cb45a';
+    btn.style.borderColor = 'rgba(60,180,90,.4)';
+    // Zoom to fit watershed
+    map.fitBounds(watershedLayer.getBounds(), { padding: [40, 40] });
+  } catch (err) {
+    watershedLoading = false;
+    btn.textContent = '🌊 Watershed';
+    status.textContent = `⚠ Could not load basin boundary (${err.message || 'network error'})`;
+    setTimeout(() => { status.textContent = ''; }, 5000);
+  }
+}
+
+function togWatershed() {
+  const btn = document.getElementById('lb-wshed');
+  if (!watershedLoaded) {
+    loadWatershed();
+    return;
+  }
+  watershedOn = !watershedOn;
+  if (watershedOn) {
+    watershedLayer.addTo(map);
+    btn.style.background = 'rgba(60,180,90,.15)';
+    btn.style.color = '#3cb45a';
+    btn.style.borderColor = 'rgba(60,180,90,.4)';
+  } else {
+    map.removeLayer(watershedLayer);
+    btn.style.background = '';
+    btn.style.color = '#2a7a3a';
+    btn.style.borderColor = 'rgba(60,180,90,.2)';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // STARTUP — zones render instantly, live data loads async in background
 // ─────────────────────────────────────────────────────────────────────────────
-applyD({in:13.75,st:'ready'});
+applyD({in:8.8,st:'ready'});
 render('partial');
 setTimeout(fetchW,800);
 setInterval(fetchW,5*60*1000);
