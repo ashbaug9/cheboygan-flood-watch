@@ -28,14 +28,15 @@ html,body{width:100%;height:100%;overflow:hidden;font-family:'Inter',sans-serif;
 .sp{flex:1;height:32px;display:flex;align-items:center;justify-content:center;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);color:#555}
 .sp.ap{background:rgba(217,107,26,.18);color:#e08845;border-color:rgba(217,107,26,.35)}
 .sp.af{background:rgba(229,57,53,.18);color:#e87070;border-color:rgba(229,57,53,.35)}
-#mw{position:absolute;left:0;right:0;bottom:0;top:calc(52px + env(safe-area-inset-top,0px) + 48px)}
+#mw{position:absolute;left:0;right:0;bottom:0;top:100px;top:calc(52px + env(safe-area-inset-top,0px) + 48px)}
 #lbtn{position:absolute;top:8px;right:10px;z-index:800;background:rgba(7,9,13,.92);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:7px 12px;color:#aaa;font-size:11.5px;font-weight:600;cursor:pointer}
 #lpk{position:absolute;top:44px;right:10px;z-index:800;background:rgba(10,12,18,.97);border:1px solid rgba(255,255,255,.09);border-radius:10px;overflow:hidden;display:none;box-shadow:0 8px 32px rgba(0,0,0,.6)}
 .lpo{padding:12px 18px;font-size:13px;font-weight:500;color:#aaa;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05);display:flex;align-items:center;gap:10px}
 .lpo:last-child{border:none}
 .lpo.active{background:rgba(255,255,255,.05);color:#fff}
 .lpo.active::after{content:'✓';margin-left:auto;color:#3cb45a;font-size:12px}
-#pov{display:none;position:absolute;top:0;left:0;right:0;bottom:0;z-index:1500;background:rgba(7,9,13,.88);backdrop-filter:blur(6px);flex-direction:column;align-items:center;justify-content:center;gap:12px}
+#pov{display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:1500;background:rgba(7,9,13,.92);backdrop-filter:blur(6px);flex-direction:column;align-items:center;justify-content:center;gap:14px}
+#pov.show{display:flex}
 .pi{font-size:24px;animation:sp2 2s linear infinite}
 @keyframes sp2{to{transform:rotate(360deg)}}
 .pt{font-size:13px;font-weight:600;color:#fff}
@@ -190,30 +191,46 @@ map.on('click',()=>document.getElementById('lpk').style.display='none');
 function buf(pts,h){
   if(pts.length<2)return[];
   const hft=h*FL;
+  const CAP=8;
+  function tang(i){
+    let tns,tew;
+    if(i===0){tns=(pts[1][0]-pts[0][0])*FL;tew=(pts[1][1]-pts[0][1])*FN;}
+    else if(i===pts.length-1){tns=(pts[i][0]-pts[i-1][0])*FL;tew=(pts[i][1]-pts[i-1][1])*FN;}
+    else{
+      const t1ns=(pts[i][0]-pts[i-1][0])*FL,t1ew=(pts[i][1]-pts[i-1][1])*FN,l1=Math.sqrt(t1ns*t1ns+t1ew*t1ew)||1;
+      const t2ns=(pts[i+1][0]-pts[i][0])*FL,t2ew=(pts[i+1][1]-pts[i][1])*FN,l2=Math.sqrt(t2ns*t2ns+t2ew*t2ew)||1;
+      tns=t1ns/l1+t2ns/l2;tew=t1ew/l1+t2ew/l2;
+    }
+    const tl=Math.sqrt(tns*tns+tew*tew)||1;return[tns/tl,tew/tl];
+  }
+  function cap(idx,dir){
+    const[tn,te]=tang(idx),cx=pts[idx][0],cy=pts[idx][1],res=[];
+    for(let k=0;k<=CAP;k++){
+      const ang=dir>0?(Math.PI*k/CAP):(Math.PI+Math.PI*k/CAP);
+      const ca=Math.cos(ang),sa=Math.sin(ang);
+      const ons=(-te*ca-tn*sa)*hft,oew=(tn*ca-te*sa)*hft;
+      res.push([cx+ons/FL,cy+oew/FN]);
+    }
+    return res;
+  }
   const L=[],R=[];
   for(let i=0;i<pts.length;i++){
     let pns,pew;
-    if(i===0||i===pts.length-1){
-      const a=i===0?0:i-1,b=i===0?1:i;
-      const tns=(pts[b][0]-pts[a][0])*FL,tew=(pts[b][1]-pts[a][1])*FN;
-      const tl=Math.sqrt(tns*tns+tew*tew)||1;
-      pns=(-tew/tl)*hft;pew=(tns/tl)*hft;
-    }else{
-      const t1ns=(pts[i][0]-pts[i-1][0])*FL,t1ew=(pts[i][1]-pts[i-1][1])*FN;
-      const l1=Math.sqrt(t1ns*t1ns+t1ew*t1ew)||1;
-      const t2ns=(pts[i+1][0]-pts[i][0])*FL,t2ew=(pts[i+1][1]-pts[i][1])*FN;
-      const l2=Math.sqrt(t2ns*t2ns+t2ew*t2ew)||1;
+    if(i===0){const[tn,te]=tang(0);pns=-te*hft;pew=tn*hft;}
+    else if(i===pts.length-1){const[tn,te]=tang(i);pns=-te*hft;pew=tn*hft;}
+    else{
+      const t1ns=(pts[i][0]-pts[i-1][0])*FL,t1ew=(pts[i][1]-pts[i-1][1])*FN,l1=Math.sqrt(t1ns*t1ns+t1ew*t1ew)||1;
+      const t2ns=(pts[i+1][0]-pts[i][0])*FL,t2ew=(pts[i+1][1]-pts[i][1])*FN,l2=Math.sqrt(t2ns*t2ns+t2ew*t2ew)||1;
       const n1ns=t1ns/l1,n1ew=t1ew/l1,n2ns=t2ns/l2,n2ew=t2ew/l2;
       const bns=n1ns+n2ns,bew=n1ew+n2ew,bl=Math.sqrt(bns*bns+bew*bew)||1;
       const bnn=bns/bl,bne=bew/bl;
-      const cos_h=Math.max(n1ns*bnn+n1ew*bne,0.33);
-      const sc=Math.min(1/cos_h,3);
-      pns=(-bne)*hft*sc;pew=(bnn)*hft*sc;
+      const sc=Math.min(1/Math.max(n1ns*bnn+n1ew*bne,0.33),3);
+      pns=-bne*hft*sc;pew=bnn*hft*sc;
     }
     L.push([pts[i][0]+pns/FL,pts[i][1]+pew/FN]);
     R.push([pts[i][0]-pns/FL,pts[i][1]-pew/FN]);
   }
-  return[...L,...[...R].reverse()];
+  return[...L,...cap(pts.length-1,-1),...[...R].reverse(),...cap(0,+1)];
 }
 const HYDRO={EL_HURON:581.0,SAT_ADJ:0.5,scenarios:{partial:{WSE_DAM:Math.min(581.5+8.0+0.5,593.35),GAMMA:0.35},full:{WSE_DAM:Math.min(581.5+11.85+0.5,593.35),GAMMA:0.25}},Z1:4.0,Z2:2.0,Z3:0.5};
 const FL=364566,FN=255200;
@@ -226,7 +243,7 @@ function ek(la,ln){return`${la.toFixed(5)},${ln.toFixed(5)}`;}
 async function qe(la,ln){const k=ek(la,ln);if(ec.has(k))return ec.get(k);const url=`https://epqs.nationalmap.gov/v1/json?x=${ln.toFixed(6)}&y=${la.toFixed(6)}&wkid=4326&units=Feet&includeDate=false`;try{const ctrl=new AbortController();const tid=setTimeout(()=>ctrl.abort(),6000);const r=await fetch(url,{signal:ctrl.signal});clearTimeout(tid);if(!r.ok)throw'';const j=await r.json();const v=parseFloat(j.value);if(isNaN(v)||v<-9000){ec.set(k,578.0);return 578.0;}ec.set(k,v);return v;}catch(e){return null;}}
 async function qAll(tr,onP){const pts=tr.flatMap(t=>t).filter(p=>!ec.has(ek(p.lat,p.lng)));if(!pts.length){onP(1,1);return 0;}let done=0,fails=0;for(let i=0;i<pts.length;i+=40){const batch=pts.slice(i,i+40);const res=await Promise.all(batch.map(p=>qe(p.lat,p.lng)));res.forEach(v=>{if(v===null)fails++;});done+=batch.length;onP(done,pts.length);if(i+40<pts.length)await new Promise(r=>setTimeout(r,30));}return fails;}
 function bpoly(tr,wse,thr){const sA=[],sB=[];for(let t=0;t<tr.length;t++){const w=wse[t],T=tr[t],ctr=T.find(p=>p.offset===0)||T[Math.floor(T.length/2)];const pos=T.filter(p=>p.offset>=0).sort((a,b)=>a.offset-b.offset);const neg=T.filter(p=>p.offset<=0).sort((a,b)=>b.offset-a.offset);let pE=[ctr.lat,ctr.lng];for(let i=pos.length-1;i>=0;i--){const el=ec.get(ek(pos[i].lat,pos[i].lng));if(el!=null&&(w-el)>thr){pE=[pos[i].lat,pos[i].lng];break;}}let nE=[ctr.lat,ctr.lng];for(let i=neg.length-1;i>=0;i--){const el=ec.get(ek(neg[i].lat,neg[i].lng));if(el!=null&&(w-el)>thr){nE=[neg[i].lat,neg[i].lng];break;}}sA.push(pE);sB.push(nE);}return[...sA,...[...sB].reverse()];}
-const STY={partial:{z3:{color:'#c8a020',fillOp:.18,dash:'6 4',weight:1.5,nm:'Zone 3 — Watch',nc:'#d8b840',sub:'0.5–2 ft · terrain-aware'},z2:{color:'#d96b1a',fillOp:.30,dash:null,weight:1.5,nm:'Zone 2 — High Risk',nc:'#e08845',sub:'2–4 ft · terrain-aware'},z1:{color:'#dc3020',fillOp:.42,dash:null,weight:2,nm:'Zone 1 — Evacuate',nc:'#e87065',sub:'4+ ft · terrain-aware'},river:{color:'#1a6fa8',fc:'#2288d8',fillOp:.72,dash:null,weight:1,nm:'River Channel',nc:'#5aa0d8',sub:'Active — CLOSED'}},full:{z3:{color:'#8b0000',fillOp:.15,dash:'6 4',weight:1.5,nm:'Zone 3 — Full Breach Watch',nc:'#c06060',sub:'0.5–2 ft · terrain-aware'},z2:{color:'#b71c1c',fillOp:.25,dash:null,weight:1.5,nm:'Zone 2 — Full Breach Risk',nc:'#e07070',sub:'2–4 ft · terrain-aware'},z1:{color:'#e53935',fillOp:.45,dash:null,weight:2,nm:'Zone 1 — Full Breach Evacuate',nc:'#ff8080',sub:'4+ ft · terrain-aware'},river:{color:'#1a6fa8',fc:'#2288d8',fillOp:.72,dash:null,weight:1,nm:'River Channel',nc:'#5aa0d8',sub:'Active — CLOSED'}}};
+const STY={partial:{z3:{color:'#c8a020',fillOp:.18,dash:'6 4',weight:1.5,nm:'Zone 3 — Watch',nc:'#d8b840',sub:'0.5–2 ft · terrain-aware'},z2:{color:'#d96b1a',fillOp:.30,dash:null,weight:1.5,nm:'Zone 2 — High Risk',nc:'#e08845',sub:'2–4 ft · terrain-aware'},z1:{color:'#dc3020',fillOp:.42,dash:null,weight:2,nm:'Zone 1 — Evacuate',nc:'#e87065',sub:'4+ ft · terrain-aware'},river:{color:'#1a6fa8',fc:'#2288d8',fillOp:.72,dash:null,weight:1,nm:'River Channel',nc:'#5aa0d8',sub:'Active — CLOSED'}},full:{z3:{color:'#7b1fa2',fillOp:.18,dash:'6 4',weight:1.5,nm:'Zone 3 — Full Breach Watch',nc:'#ce93d8',sub:'0.5–2 ft · terrain-aware'},z2:{color:'#f4511e',fillOp:.30,dash:null,weight:1.5,nm:'Zone 2 — Full Breach High Risk',nc:'#ff8a65',sub:'2–4 ft · terrain-aware'},z1:{color:'#e53935',fillOp:.48,dash:null,weight:2.5,nm:'Zone 1 — Full Breach EVACUATE',nc:'#ff8080',sub:'4+ ft · terrain-aware'},river:{color:'#1a6fa8',fc:'#2288d8',fillOp:.72,dash:null,weight:1,nm:'River Channel',nc:'#5aa0d8',sub:'Active — CLOSED'}}};
 const SCDESC={partial:'<strong>Partial Breach — Erosional Failure</strong>Peak 17,500 cfs (Froehlich). Zones from Manning\'s WSE + USGS 3DEP terrain. Saturation +0.5 ft (snowmelt).',full:'<strong>Full Breach — Complete Failure</strong>Peak 25,000 cfs (Froehlich). Manning\'s WSE + USGS 3DEP terrain. Wave ~12–15 mph.'};
 const ORDER=['z3','z2','z1','river'];const vis={z1:true,z2:true,z3:true,river:true};let aL={},curSc='partial';
 function rZ(tr,wse,sc,fb=false){ORDER.forEach(id=>{if(aL[id]){map.removeLayer(aL[id]);delete aL[id];}});const def=STY[sc];let polys;if(fb||!tr){polys={z3:buf(RCL,sc==='full'?.01230:.00600),z2:buf(RCL,sc==='full'?.00550:.00210),z1:buf(RCL,sc==='full'?.00210:.00080),river:buf(RCL,0.00027)};}else{polys={z3:bpoly(tr,wse,HYDRO.Z3),z2:bpoly(tr,wse,HYDRO.Z2),z1:bpoly(tr,wse,HYDRO.Z1),river:buf(RCL,0.00027)};}
@@ -240,8 +257,8 @@ showP(0,'Generating transects…');await new Promise(r=>setTimeout(r,20));const 
 const total=tr.reduce((s,t)=>s+t.length,0);const unc=tr.flatMap(t=>t).filter(p=>!ec.has(ek(p.lat,p.lng))).length;
 if(unc>0){showP(.05,`Querying elevation (${total} points)…`);const fails=await qAll(tr,(done,tot)=>showP(.05+.85*(done/tot),`${done}/${tot} elevation queries`));if(fails>.35*total){hideP();rZ(null,null,sc,true);document.getElementById('mn2').textContent='⚠ EPQS unavailable — fallback model';return;}}
 showP(.95,'Building zones…');await new Promise(r=>setTimeout(r,20));const wse=compWSE(sc,NT);rZ(tr,wse,sc);if(unc>0)saveEC();zonesOK=true;hideP();document.getElementById('mn2').textContent=`Manning's+EPQS · γ=${HYDRO.scenarios[sc].GAMMA} · +0.5ft sat`;}
-function showP(f,msg){document.getElementById('pov').style.display='flex';document.getElementById('pf').style.width=(f*100)+'%';document.getElementById('psub').textContent=msg;}
-function hideP(){document.getElementById('pov').style.display='none';}
+function showP(f,msg){document.getElementById('pov').classList.add('show');document.getElementById('pf').style.width=(f*100)+'%';document.getElementById('psub').textContent=msg;}
+function hideP(){document.getElementById('pov').classList.remove('show');}
 function setSc(sc){document.getElementById('spp').className='sp'+(sc==='partial'?' ap':'');document.getElementById('spf').className='sp'+(sc==='full'?' af':'');compute(sc);}
 function mk(h,a){return L.divIcon({html:h,className:'',iconAnchor:a||[0,0]});}
 L.marker(DAM_LL,{icon:mk('<div style="background:#c93a2a;border:2px solid rgba(255,255,255,.9);border-radius:5px;padding:5px 11px;font-family:Inter,sans-serif;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;box-shadow:0 2px 12px rgba(0,0,0,.8)">⚠ DAM</div>',[26,15])}).addTo(map).bindPopup('<h4>⚠ Cheboygan Lock &amp; Dam</h4>N45°38.164′ W84°28.777′<br>21 ft · Reservoir 592.85 ft MSL<br><b style="color:#ffb700">13.75" below crest · READY</b><br>5+ pumps · All gates open');
