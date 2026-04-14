@@ -72,7 +72,7 @@ html,body{min-height:100%;font-family:'Barlow',sans-serif;background:#07090d;col
 <div class="wrap">
   <div class="alert-banner">
     <div class="adot"></div>
-    <div><strong>ACTIVE EMERGENCY</strong><span> — READY status · Water 13.75" below dam crest · Rising +3"/day · Crane removed gates overnight</span></div>
+    <div><strong>ACTIVE EMERGENCY</strong><span id="banner-text"> — Fetching live water level…</span></div>
   </div>
   <div class="site-header">
     <div class="eyebrow">Cheboygan County Emergency Management</div>
@@ -80,9 +80,9 @@ html,body{min-height:100%;font-family:'Barlow',sans-serif;background:#07090d;col
     <div class="site-sub">Live flood risk mapping · Cheboygan Lock &amp; Dam · Cheboygan River, Michigan</div>
   </div>
   <div class="status-row">
-    <div class="stat-pill hl"><div class="sp-k">Alert Level</div><div class="sp-v alert">⚠ READY</div></div>
-    <div class="stat-pill"><div class="sp-k">Water Level</div><div class="sp-v warn">13.75" below</div></div>
-    <div class="stat-pill"><div class="sp-k">Rise Rate</div><div class="sp-v alert">+3" / day</div></div>
+    <div class="stat-pill hl"><div class="sp-k">Alert Level</div><div class="sp-v alert" id="st-alert">—</div></div>
+    <div class="stat-pill"><div class="sp-k">Water Level</div><div class="sp-v warn" id="st-level">—</div></div>
+    <div class="stat-pill"><div class="sp-k">WSE NAVD88</div><div class="sp-v warn" id="st-wse">—</div></div>
     <div class="stat-pill"><div class="sp-k">Pumps Active</div><div class="sp-v warn">5+</div></div>
     <div class="stat-pill"><div class="sp-k">SEOC Status</div><div class="sp-v alert">ACTIVE</div></div>
   </div>
@@ -94,23 +94,23 @@ html,body{min-height:100%;font-family:'Barlow',sans-serif;background:#07090d;col
       <div class="card-desc">Touch-optimized interactive flood map for phones and tablets</div>
       <div class="card-badge cb-rec">Recommended for phones</div>
       <div class="card-feats">
-        <div class="cf"><div class="dot"></div>GPS-anchored river channel</div>
-        <div class="cf"><div class="dot"></div>OSM centerline on load</div>
-        <div class="cf"><div class="dot"></div>Google hybrid view default</div>
-        <div class="cf"><div class="dot"></div>Touch-friendly bottom sheet</div>
+        <div class="cf"><div class="dot"></div>Partial + full breach zones</div>
+        <div class="cf"><div class="dot"></div>Live USGS water level</div>
+        <div class="cf"><div class="dot"></div>Touch-friendly interface</div>
+        <div class="cf"><div class="dot"></div>Satellite + street map layers</div>
       </div>
       <a href="mobile.html" class="card-cta cta-p" onclick="event.stopPropagation()">Open Mobile Map →</a>
     </a>
     <a class="acard" href="cheboygan_flood_map_v3.html">
       <div class="card-ico">🖥</div>
       <div class="card-title">Desktop Map</div>
-      <div class="card-desc">Full-featured map with panel, live USGS data, and calibration tool</div>
+      <div class="card-desc">Full-featured map with live USGS data, terrain-aware flood zones, and watershed overlay</div>
       <div class="card-badge cb-alt">Best on larger screens</div>
       <div class="card-feats">
         <div class="cf"><div class="dot"></div>Partial + full breach modeling</div>
-        <div class="cf"><div class="dot"></div>✏ Calibrate channel tool</div>
-        <div class="cf"><div class="dot"></div>Live USGS water data</div>
-        <div class="cf"><div class="dot"></div>Zone toggle + breach popups</div>
+        <div class="cf"><div class="dot"></div>USGS LiDAR terrain zones</div>
+        <div class="cf"><div class="dot"></div>Live USGS gage (site 04132052)</div>
+        <div class="cf"><div class="dot"></div>NLDI watershed boundary overlay</div>
       </div>
       <a href="cheboygan_flood_map_v3.html" class="card-cta cta-s" onclick="event.stopPropagation()">Open Desktop Map →</a>
     </a>
@@ -124,16 +124,16 @@ html,body{min-height:100%;font-family:'Barlow',sans-serif;background:#07090d;col
   <div class="rsg-strip">
     <div class="rsg-t">Ready · Set · Go — Current Phase</div>
     <div class="rsg-steps">
-      <div class="rsg-step rsg-act"><h4>✓ READY</h4><p>Water 12–14" below top, rising ≥3"/day. Pack go-bag. Secure items. Monitor updates.</p></div>
-      <div class="rsg-step rsg-off"><h4>SET</h4><p>Triggered at 6" below top. Load family, pets, vehicle for immediate departure.</p></div>
-      <div class="rsg-step rsg-off"><h4>GO</h4><p>Triggered at 1" below top. Follow evacuation orders. Do not wait.</p></div>
+      <div class="rsg-step" id="rsg-ready"><h4>READY</h4><p>12–14" below top, rising ≥3"/day. Pack go-bag. Secure items. Monitor updates.</p></div>
+      <div class="rsg-step rsg-off" id="rsg-set"><h4>SET</h4><p>Triggered at 6" below top. Load family, pets, vehicle for immediate departure.</p></div>
+      <div class="rsg-step rsg-off" id="rsg-go"><h4>GO</h4><p>Triggered at 1" below top. Follow evacuation orders. Do not wait.</p></div>
     </div>
   </div>
   <div class="footer">
-    Channel: fishweb.com GPS navigation markers (3-anchor) + OpenStreetMap Overpass API (runtime refinement)<br>
-    Model: FEMA P-946 simplified breach methodology · Froehlich (1995) for full breach<br>
+    Centerline: user-verified GPS coordinates · Model: Froehlich (2008) breach methodology<br>
+    Terrain: USGS 3DEP elevation · Gage: USGS site 04132052 (Cheboygan R at Lincoln Ave)<br>
     Data: Michigan DNR · Michigan State Police EMHSD · USGS Water Services<br>
-    Last verified: Mon Apr 13, 2026 · 13.75" below crest · READY status<br><br>
+    Status updates automatically from USGS — <span id="footer-updated">loading…</span><br><br>
     <a href="https://www.michigan.gov/msp/divisions/emhsd/2026-cheboygan-dam" target="_blank">MSP EMHSD</a>
     <span class="sep">·</span><a href="https://www.michigan.gov/dnr" target="_blank">Michigan DNR</a>
     <span class="sep">·</span><a href="https://www.211nemichigan.org" target="_blank">211 NE Michigan</a>
@@ -142,6 +142,7 @@ html,body{min-height:100%;font-family:'Barlow',sans-serif;background:#07090d;col
   </div>
 </div>
 <script>
+// Redirect mobile users
 if(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)){
   const banner=document.querySelector('.alert-banner');
   const tip=document.createElement('div');
@@ -150,6 +151,86 @@ if(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)){
   tip.onclick=()=>window.location.href='mobile.html';
   banner.parentNode.insertBefore(tip,banner.nextSibling);
 }
+
+// Live water level from USGS site 04132052 — same gage as desktop map
+const CREST = 596.346; // ft NAVD88 — back-calculated Apr 13 7am reading
+
+async function fetchLevel() {
+  try {
+    // Try WSE (parameter 63160) first
+    const r = await fetch(
+      'https://waterservices.usgs.gov/nwis/iv/?sites=04132052&parameterCd=63160&format=json&period=PT2H',
+      {cache:'no-cache'}
+    );
+    if (!r.ok) throw 0;
+    const j = await r.json();
+    const ts = (j?.value?.timeSeries||[]).find(s=>s.variable?.variableCode?.[0]?.value==='63160');
+    const v = ts?.values?.[0]?.value;
+    if (v && v.length) {
+      const lt = v[v.length-1];
+      const wse = parseFloat(lt.value);
+      if (!isNaN(wse) && wse > 500) {
+        const belowFt = Math.max(0, CREST - wse);
+        const belowIn = (belowFt * 12).toFixed(1);
+        const st = belowFt*12 <= 1 ? 'go' : belowFt*12 <= 6 ? 'set' : belowFt*12 <= 12 ? 'ready' : 'monitor';
+        applyStatus(st, belowIn, wse.toFixed(2), lt.dateTime);
+        return;
+      }
+    }
+    // Fallback to gage height
+    const r2 = await fetch(
+      'https://waterservices.usgs.gov/nwis/iv/?sites=04132052&parameterCd=00065&format=json&period=PT2H',
+      {cache:'no-cache'}
+    );
+    const j2 = await r2.json();
+    const v2 = j2?.value?.timeSeries?.[0]?.values?.[0]?.value;
+    if (v2 && v2.length) {
+      const lt = v2[v2.length-1];
+      const gh = parseFloat(lt.value);
+      const est = Math.max(0.5, Math.round(20-(gh-8)*2));
+      const st = est<=1?'go':est<=6?'set':est<=12?'ready':'monitor';
+      applyStatus(st, est, null, lt.dateTime);
+    }
+  } catch(e) {
+    document.getElementById('banner-text').textContent =
+      ' — Live data unavailable. Check MSP/EMHSD for current status.';
+  }
+}
+
+function applyStatus(st, belowIn, wse, dateTime) {
+  const labels = {monitor:'✓ NORMAL', ready:'⚠ READY', set:'⚠ SET', go:'🚨 GO'};
+  const msgs = {
+    monitor: ` — ${belowIn}" below crest · Monitoring`,
+    ready:   ` — ${belowIn}" below crest · Rising · Prepare to evacuate`,
+    set:     ` — ${belowIn}" below crest · Prepare NOW for evacuation`,
+    go:      ` — ${belowIn}" below crest · EVACUATE IMMEDIATELY`,
+  };
+  document.getElementById('banner-text').textContent = msgs[st] || msgs.ready;
+  document.getElementById('st-alert').textContent = labels[st] || labels.ready;
+  document.getElementById('st-level').textContent = belowIn + '" below';
+  if (wse) document.getElementById('st-wse').textContent = wse + ' ft';
+  // RSG steps
+  const steps = {ready:'rsg-ready', set:'rsg-set', go:'rsg-go'};
+  ['rsg-ready','rsg-set','rsg-go'].forEach(id => {
+    const el = document.getElementById(id);
+    el.className = 'rsg-step rsg-off';
+    el.querySelector('h4').textContent = id.replace('rsg-','').toUpperCase();
+  });
+  const activeId = steps[st];
+  if (activeId) {
+    const el = document.getElementById(activeId);
+    el.className = 'rsg-step rsg-act';
+    el.querySelector('h4').textContent = '✓ ' + st.toUpperCase();
+  }
+  // Footer timestamp
+  const t = dateTime ? new Date(dateTime).toLocaleString([],
+    {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : 'unknown';
+  document.getElementById('footer-updated').textContent =
+    `last USGS reading: ${t} · ${belowIn}" below crest`;
+}
+
+fetchLevel();
+setInterval(fetchLevel, 5 * 60 * 1000);
 </script>
 </body>
 </html>
