@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Road Hazard Reporter</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- ============================================================
+  ROAD HAZARD REPORTER  —  Setup Instructions
+  ============================================================
+
+  This page works out of the box using your browser's local storage,
+  meaning reports are only saved on YOUR device.
+
+  To make it truly crowdsourced (everyone sees the same pins),
+  connect a free Firebase Realtime Database in 5 minutes:
+
+  1. Go to https://console.firebase.google.com
+  2. Click "Add project" and give it a name
+  3. In the left menu: Build → Realtime Database → Create database
+  4. Choose "Start in test mode" (you can add security rules later)
+  5. Copy your database URL (looks like: https://your-project-default-rtdb.firebaseio.com)
+  6. Paste it below where it says FIREBASE_URL
+
+  That's it — once connected, all reports are shared in real time.
+  ============================================================ -->
+
+<script>
+  // ─── CONFIGURATION ──────────────────────────────────────────
+  //
+  //  Paste your Firebase Realtime Database URL here to enable
+  //  real-time crowdsourcing. Leave empty to use local storage only.
+  //
+  const FIREBASE_URL = '';   // e.g. 'https://your-project-default-rtdb.firebaseio.com'
+  //
+  //  Map center coordinates (latitude, longitude) and zoom level.
+  //  Default is set to Cheboygan County, MI. Change as needed.
+  //
+  const MAP_CENTER = [45.6499, -84.4932];
+  const MAP_ZOOM   = 13;
+  //
+  //  Page title shown in the header
+  //
+  const PAGE_TITLE = 'Road Hazard Reporter';
+  //
+  // ─────────────────────────────────────────────────────────────
+</script>
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --red:      #E24B4A;
+    --orange:   #D4700A;
+    --blue:     #2B7FD4;
+    --yellow:   #C98B00;
+    --green:    #3A8A1A;
+    --bg:       #ffffff;
+    --bg2:      #f5f4f0;
+    --bg3:      #eceae4;
+    --border:   rgba(0,0,0,0.12);
+    --border2:  rgba(0,0,0,0.22);
+    --text:     #1a1a1a;
+    --text2:    #555550;
+    --text3:    #888882;
+    --header-h: 52px;
+    --panel-w:  300px;
+    --radius:   8px;
+    --shadow:   0 2px 12px rgba(0,0,0,0.14);
+  }
+
+  body {
+    font-family: 'Barlow', sans-serif;
+    font-size: 14px;
+    color: var(--text);
+    background: var(--bg2);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ── */
+  #header {
+    height: var(--header-h);
+    background: #1c2127;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 10px;
+    z-index: 1000;
+    flex-shrink: 0;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+  }
+  #header h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #fff;
+    flex: 1;
+  }
+  #count-badge {
+    font-size: 11px;
+    font-weight: 500;
+    background: rgba(255,255,255,0.12);
+    color: rgba(255,255,255,0.75);
+    border-radius: 999px;
+    padding: 3px 10px;
+    border: 1px solid rgba(255,255,255,0.15);
+    white-space: nowrap;
+  }
+  #filter-bar { display: flex; gap: 6px; align-items: center; }
+  .filter-dot {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    border: 2.5px solid rgba(255,255,255,0.5);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: opacity 0.15s, transform 0.15s;
+  }
+  .filter-dot:hover { transform: scale(1.15); }
+  .filter-dot.off { opacity: 0.25; }
+  #btn-report {
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 7px 14px;
+    border-radius: var(--radius);
+    border: none;
+    background: #E24B4A;
+    color: #fff;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  #btn-report:hover { background: #c73937; }
+
+  /* ── Layout ── */
+  #body {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+  }
+
+  #map {
+    flex: 1;
+    z-index: 1;
+    cursor: crosshair;
+  }
+
+  /* ── Side panel ── */
+  #panel {
+    width: var(--panel-w);
+    background: var(--bg);
+    border-left: 1px solid var(--border);
+    transform: translateX(var(--panel-w));
+    transition: transform 0.22s ease;
+    overflow-y: auto;
+    z-index: 500;
+    flex-shrink: 0;
+  }
+  #panel.open { transform: translateX(0); }
+  #panel-inner { padding: 18px; }
+
+  /* ── Legend ── */
+  #legend {
+    position: absolute;
+    bottom: 32px;
+    left: 12px;
+    z-index: 800;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--text2);
+    line-height: 2;
+    box-shadow: var(--shadow);
+    pointer-events: none;
+  }
+  .legend-row { display: flex; align-items: center; gap: 8px; }
+  .legend-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── Hint bar ── */
+  #hint {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 800;
+    background: rgba(28,33,39,0.82);
+    color: rgba(255,255,255,0.9);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 999px;
+    pointer-events: none;
+    transition: opacity 0.4s;
+    white-space: nowrap;
+  }
+
+  /* ── Toast ── */
+  #toast {
+    position: absolute;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%) translateY(10px);
+    opacity: 0;
+    transition: all 0.22s;
+    background: #1c2127;
+    color: #fff;
+    border-radius: var(--radius);
+    padding: 9px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    z-index: 2000;
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: var(--shadow);
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── Panel styles ── */
+  .panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .panel-title { font-size: 15px; font-weight: 500; color: var(--text); }
+  .close-btn {
+    background: none; border: none; cursor: pointer;
+    font-size: 20px; color: var(--text3); padding: 0; line-height: 1;
+  }
+  .close-btn:hover { color: var(--text); }
+
+  .field-label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 5px; }
+  .field-group { margin-bottom: 13px; }
+
+  .field-input {
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .field-input:focus { border-color: #4a90d9; }
+  textarea.field-input { resize: vertical; }
+
+  /* ── Hazard type selector ── */
+  .type-grid { display: flex; flex-direction: column; gap: 5px; }
+  .type-opt {
+    display: flex; align-items: center; gap: 9px;
+    padding: 8px 10px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--bg2);
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text2);
+    font-family: 'Barlow', sans-serif;
+    transition: all 0.12s;
+    text-align: left;
+  }
+  .type-opt:hover { background: var(--bg3); }
+  .type-opt.sel { background: var(--bg); color: var(--text); font-weight: 500; }
+  .type-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── Action buttons ── */
+  .btn-submit {
+    font-family: 'Barlow', sans-serif;
+    width: 100%; padding: 10px;
+    border-radius: var(--radius);
+    border: none;
+    background: #1c2127;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+    margin-top: 4px;
+  }
+  .btn-submit:hover { background: #2e353e; }
+  .btn-remove {
+    font-family: 'Barlow', sans-serif;
+    width: 100%; padding: 8px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border2);
+    background: none;
+    color: var(--text3);
+    font-size: 12px;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: all 0.12s;
+  }
+  .btn-remove:hover { color: var(--red); border-color: var(--red); }
+
+  .err { font-size: 12px; color: var(--red); margin-top: 8px; }
+
+  /* ── Detail view ── */
+  .detail-type-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .detail-road { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+  .detail-meta { font-size: 11px; color: var(--text3); margin-bottom: 10px; }
+  .detail-desc { font-size: 13px; line-height: 1.55; color: var(--text); margin-bottom: 12px; }
+  .detail-photo { width: 100%; border-radius: var(--radius); display: block; margin-bottom: 12px; border: 1px solid var(--border); }
+  .detail-coords { font-size: 11px; color: var(--text3); }
+
+  /* ── Location pin indicator ── */
+  .loc-pill {
+    font-size: 11px; color: var(--text2);
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px 9px;
+    margin-bottom: 13px;
+  }
+  .loc-needed {
+    font-size: 12px; color: #7a5c00;
+    background: #fff8e6;
+    border: 1px solid #f0d070;
+    border-radius: var(--radius);
+    padding: 8px 10px;
+    margin-bottom: 13px;
+    line-height: 1.45;
+  }
+
+  /* ── Mobile responsive ── */
+  @media (max-width: 600px) {
+    :root { --panel-w: 100vw; }
+    #legend { display: none; }
+    #hint { font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <h1 id="page-title">Road Hazard Reporter</h1>
+  <span id="count-badge">0 reports</span>
+  <div id="filter-bar"></div>
+  <button id="btn-report" onclick="openReportPanel(null)">+ Report hazard</button>
+</div>
+
+<div id="body">
+  <div id="map"></div>
+
+  <div id="panel">
+    <div id="panel-inner"></div>
+  </div>
+
+  <div id="legend"></div>
+
+  <div id="hint">Click anywhere on the map to report a hazard</div>
+
+  <div id="toast"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── Config ────────────────────────────────────────────────────
+document.getElementById('page-title').textContent = PAGE_TITLE;
+
+const TYPES = {
+  closed:   { label: 'Road closed',  color: '#E24B4A', short: 'C' },
+  washout:  { label: 'Washout',      color: '#D4700A', short: 'W' },
+  flooding: { label: 'Flooding',     color: '#2B7FD4', short: 'F' },
+  caution:  { label: 'Caution',      color: '#C98B00', short: '!' },
+  reopened: { label: 'Reopened',     color: '#3A8A1A', short: 'R' },
+};
+
+// ── State ─────────────────────────────────────────────────────
+let hazards = [], mkrs = {}, activeFilters = new Set(Object.keys(TYPES)), pendingLL = null;
+const USE_FIREBASE = FIREBASE_URL && FIREBASE_URL.length > 0;
+
+// ── Map ───────────────────────────────────────────────────────
+const map = L.map('map', { zoomControl: true }).setView(MAP_CENTER, MAP_ZOOM);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  maxZoom: 19
+}).addTo(map);
+
+map.on('click', e => {
+  pendingLL = e.latlng;
+  openReportPanel(e.latlng);
+});
+
+// ── Storage ───────────────────────────────────────────────────
+async function loadHazards() {
+  if (USE_FIREBASE) {
+    try {
+      const res = await fetch(`${FIREBASE_URL}/hazards.json`);
+      const data = await res.json();
+      if (data) {
+        hazards = Object.entries(data).map(([id, h]) => ({ ...h, id }));
+      }
+    } catch (e) {
+      console.error('Firebase load failed:', e);
+      loadFromLocal();
+    }
+  } else {
+    loadFromLocal();
+  }
+  hazards.forEach(addMarker);
+  updateCount();
+}
+
+function loadFromLocal() {
+  try {
+    const stored = localStorage.getItem('road-hazards-v1');
+    if (stored) hazards = JSON.parse(stored);
+  } catch (e) {
+    hazards = [];
+  }
+}
+
+async function saveHazard(h) {
+  if (USE_FIREBASE) {
+    try {
+      const res = await fetch(`${FIREBASE_URL}/hazards/${h.id}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(h)
+      });
+      if (!res.ok) throw new Error('Firebase write failed');
+    } catch (e) {
+      console.error('Firebase save failed:', e);
+      saveToLocal();
+    }
+  } else {
+    saveToLocal();
+  }
+}
+
+async function removeHazard(id) {
+  if (USE_FIREBASE) {
+    try {
+      await fetch(`${FIREBASE_URL}/hazards/${id}.json`, { method: 'DELETE' });
+    } catch (e) {
+      console.error('Firebase delete failed:', e);
+    }
+  }
+  hazards = hazards.filter(h => h.id !== id);
+  saveToLocal();
+}
+
+function saveToLocal() {
+  try {
+    localStorage.setItem('road-hazards-v1', JSON.stringify(hazards));
+  } catch (e) {
+    console.error('localStorage save failed:', e);
+  }
+}
+
+// ── Firebase real-time listener ───────────────────────────────
+function startFirebaseListener() {
+  if (!USE_FIREBASE) return;
+  const evtSource = new EventSource(`${FIREBASE_URL}/hazards.json?accept=text/event-stream`);
+  evtSource.addEventListener('put', e => {
+    const { path, data } = JSON.parse(e.data);
+    if (path === '/' && data) {
+      const fresh = Object.entries(data).map(([id, h]) => ({ ...h, id }));
+      fresh.forEach(h => {
+        if (!mkrs[h.id]) { hazards.push(h); addMarker(h); updateCount(); }
+      });
+    }
+  });
+}
+
+// ── Markers ───────────────────────────────────────────────────
+function makeIcon(type) {
+  const t = TYPES[type] || TYPES.caution;
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:30px;height:30px;border-radius:50%;
+      background:${t.color};border:3px solid #fff;
+      box-shadow:0 2px 6px rgba(0,0,0,0.3);
+      display:flex;align-items:center;justify-content:center;
+      font-size:12px;font-weight:700;color:#fff;
+      cursor:pointer;font-family:sans-serif;
+      ">${t.short}</div>`,
+    iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -18]
+  });
+}
+
+function addMarker(h) {
+  const m = L.marker([h.lat, h.lng], { icon: makeIcon(h.type) });
+  m.on('click', () => openDetailPanel(h));
+  if (activeFilters.has(h.type)) m.addTo(map);
+  mkrs[h.id] = m;
+}
+
+// ── UI helpers ────────────────────────────────────────────────
+function updateCount() {
+  const n = hazards.length;
+  document.getElementById('count-badge').textContent = n + ' report' + (n !== 1 ? 's' : '');
+}
+
+function buildFilterBar() {
+  document.getElementById('filter-bar').innerHTML =
+    Object.entries(TYPES).map(([k, v]) =>
+      `<div class="filter-dot" title="${v.label}" data-type="${k}" style="background:${v.color}" onclick="toggleFilter('${k}',this)"></div>`
+    ).join('');
+}
+
+function buildLegend() {
+  document.getElementById('legend').innerHTML =
+    Object.entries(TYPES).map(([k, v]) =>
+      `<div class="legend-row"><span class="legend-dot" style="background:${v.color};"></span>${v.label}</div>`
+    ).join('');
+}
+
+function toggleFilter(type, dot) {
+  dot.classList.toggle('off');
+  if (activeFilters.has(type)) {
+    activeFilters.delete(type);
+    hazards.filter(h => h.type === type).forEach(h => mkrs[h.id] && map.removeLayer(mkrs[h.id]));
+  } else {
+    activeFilters.add(type);
+    hazards.filter(h => h.type === type).forEach(h => mkrs[h.id] && mkrs[h.id].addTo(map));
+  }
+}
+
+function showPanel() { document.getElementById('panel').classList.add('open'); }
+function closePanel() {
+  document.getElementById('panel').classList.remove('open');
+  pendingLL = null;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// Hide hint after 5 seconds
+setTimeout(() => { document.getElementById('hint').style.opacity = '0'; }, 5000);
+
+// ── Report panel ──────────────────────────────────────────────
+function openReportPanel(ll) {
+  const coords = ll ? `${ll.lat.toFixed(4)}, ${ll.lng.toFixed(4)}` : null;
+  document.getElementById('panel-inner').innerHTML = `
+    <div class="panel-header">
+      <span class="panel-title">Report a hazard</span>
+      <button class="close-btn" onclick="closePanel()">&#x2715;</button>
+    </div>
+
+    ${coords
+      ? `<div class="loc-pill">&#x1F4CC; Pinned at ${coords}</div>`
+      : `<div class="loc-needed">Tap anywhere on the map to pin your location, then fill out the form.</div>`
+    }
+
+    <div class="field-group">
+      <span class="field-label">Hazard type</span>
+      <div class="type-grid">
+        ${Object.entries(TYPES).map(([k, v]) =>
+          `<button class="type-opt" data-type="${k}" onclick="selType('${k}',this)">
+            <span class="type-dot" style="background:${v.color};"></span>
+            ${v.label}
+          </button>`
+        ).join('')}
+      </div>
+      <input type="hidden" id="f-type">
+    </div>
+
+    <div class="field-group">
+      <span class="field-label">Road name</span>
+      <input class="field-input" id="f-road" type="text" placeholder="e.g. M-68, County Rd 489">
+    </div>
+
+    <div class="field-group">
+      <span class="field-label">Description</span>
+      <textarea class="field-input" id="f-desc" rows="3" placeholder="Describe what you saw..."></textarea>
+    </div>
+
+    <div class="field-group">
+      <span class="field-label">Photo (optional)</span>
+      <input class="field-input" id="f-photo" type="file" accept="image/*" style="padding:6px;">
+    </div>
+
+    <div class="field-group">
+      <span class="field-label">Your name (optional)</span>
+      <input class="field-input" id="f-name" type="text" placeholder="Anonymous">
+    </div>
+
+    <button class="btn-submit" onclick="submitReport()">Submit report</button>
+    <div id="f-err" class="err"></div>
+  `;
+  showPanel();
+}
+
+function selType(k, btn) {
+  document.getElementById('f-type').value = k;
+  document.querySelectorAll('.type-opt').forEach(b => {
+    b.classList.remove('sel');
+    b.style.borderColor = '';
+  });
+  btn.classList.add('sel');
+  btn.style.borderColor = TYPES[k].color;
+}
+
+async function submitReport() {
+  const type   = document.getElementById('f-type').value;
+  const road   = document.getElementById('f-road').value.trim();
+  const desc   = document.getElementById('f-desc').value.trim();
+  const name   = document.getElementById('f-name').value.trim() || 'Anonymous';
+  const errEl  = document.getElementById('f-err');
+
+  if (!type) { errEl.textContent = 'Please select a hazard type.'; return; }
+  const ll = pendingLL || map.getCenter();
+
+  async function finish(photo) {
+    const h = {
+      id:       Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+      lat:      ll.lat,
+      lng:      ll.lng,
+      type,
+      road:     road || 'Pinned on map',
+      desc,
+      reporter: name,
+      date:     new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      photo:    photo || null,
+    };
+    hazards.push(h);
+    await saveHazard(h);
+    addMarker(h);
+    updateCount();
+    closePanel();
+    map.panTo([h.lat, h.lng]);
+    showToast('Hazard reported — thank you!');
+  }
+
+  const file = document.getElementById('f-photo').files[0];
+  if (file) { compressPhoto(file, finish); } else { await finish(null); }
+}
+
+function compressPhoto(file, cb) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const max = 600, canvas = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      if (w > max || h > max) {
+        if (w > h) { h = Math.round(h * max / w); w = max; }
+        else       { w = Math.round(w * max / h); h = max; }
+      }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      cb(canvas.toDataURL('image/jpeg', 0.55));
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Detail panel ──────────────────────────────────────────────
+function openDetailPanel(h) {
+  const t = TYPES[h.type] || TYPES.caution;
+  document.getElementById('panel-inner').innerHTML = `
+    <div class="panel-header">
+      <div class="detail-type-row">
+        <span class="type-dot" style="background:${t.color};width:13px;height:13px;"></span>
+        <span class="panel-title">${t.label}</span>
+      </div>
+      <button class="close-btn" onclick="closePanel()">&#x2715;</button>
+    </div>
+
+    <div class="detail-road">${h.road}</div>
+    <div class="detail-meta">Reported ${h.date} &middot; ${h.reporter}</div>
+
+    ${h.desc   ? `<div class="detail-desc">${h.desc}</div>` : ''}
+    ${h.photo  ? `<img class="detail-photo" src="${h.photo}" alt="Hazard photo">` : ''}
+
+    <div class="detail-coords">${h.lat.toFixed(5)}, ${h.lng.toFixed(5)}</div>
+
+    <button class="btn-remove" onclick="confirmRemove('${h.id}')">Remove this report</button>
+  `;
+  showPanel();
+  map.panTo([h.lat, h.lng]);
+}
+
+async function confirmRemove(id) {
+  if (!confirm('Remove this report from the map?')) return;
+  if (mkrs[id]) { map.removeLayer(mkrs[id]); delete mkrs[id]; }
+  await removeHazard(id);
+  closePanel();
+  updateCount();
+  showToast('Report removed');
+}
+
+// ── Init ──────────────────────────────────────────────────────
+buildFilterBar();
+buildLegend();
+loadHazards();
+startFirebaseListener();
+</script>
+</body>
+</html>
